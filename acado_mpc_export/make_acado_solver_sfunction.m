@@ -19,13 +19,13 @@
 %% Legacy code wrapper for the ACADO CGT generated OCP solver
 
 % Dimensions
-ACADO_N   = 25;
+ACADO_N   = 30;
 ACADO_NX  = 12;
 ACADO_NDX = 0;
 ACADO_NXA = 0;
 ACADO_NU  = 6;
 ACADO_NOD = 0;
-ACADO_NY  = 18;
+ACADO_NY  = 12;
 ACADO_NYN = 6;
 
 ACADO_QP_SOLVER                   = 'QPOASES';
@@ -36,7 +36,7 @@ ACADO_USE_ARRIVAL_COST            = 0;
 ACADO_COMPUTE_COVARIANCE_MATRIX   = 0;
 
 aSfunName  = 'acado_solver_sfun';
-aRealT     = 'double';
+aRealT     = 'single';
 aHeaderFile = 'acado_solver_sfunction.h';
 
 %% Define busses

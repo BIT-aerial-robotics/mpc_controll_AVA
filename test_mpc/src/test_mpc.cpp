@@ -10,7 +10,7 @@
 #define NX          ACADO_NX  /* Number of differential state variables.  */
 #define NXA         ACADO_NXA /* Number of algebraic variables. */
 #define NU          ACADO_NU  /* Number of control inputs. */
-#define NOD         ACADO_NOD  /* Number of online data values. */
+#define NOD         ACADO_NOD /* Number of online data values. */
 
 #define NY          ACADO_NY  /* Number of measurements/references on nodes 0..N - 1. */
 #define NYN         ACADO_NYN /* Number of measurements/references on node N. */
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 	/*
     // INTRODUCE THE VARIABLES:
     // -------------------------
-    DifferentialState xB;
+	DifferentialState xB;
 	DifferentialState xW;
 	DifferentialState vB;
 	DifferentialState vW;
@@ -221,6 +221,7 @@ int main(int argc, char **argv)
 	/* The "real-time iterations" loop. */
 	for(iter = 0; iter < NUM_STEPS; ++iter)
 	{
+	
         /* Perform the feedback step. */
 		acado_feedbackStep( );
 
@@ -229,11 +230,87 @@ int main(int argc, char **argv)
 		//if( VERBOSE ) printf("\tReal-Time Iteration %d:  KKT Tolerance = %.3e\n\n", iter, acado_getKKT() );
 
 		/* Optional: shift the initialization (look at acado_common.h). */
-        /* acado_shiftStates(2, 0, 0); */
-		/* acado_shiftControls( 0 ); */
-		ROS_INFO_STREAM("control:"<<acadoVariables.u[0]);
-		acado_printControlVariables();
+        acado_shiftStates(2, 0, 0); 
+		acado_shiftControls( 0 ); 
 
+		ROS_INFO_STREAM("control:"<<acadoVariables.u[0]);
+		//acado_printControlVariables();
+		ROS_INFO_STREAM("x:");
+		acado_printDifferentialVariables();
+		ROS_INFO_STREAM("x0:");
+		ROS_INFO_STREAM(
+			" "<<acadoVariables.x0[0]<<
+			" "<<acadoVariables.x0[1]<<
+			" "<<acadoVariables.x0[2]<<
+			" "<<acadoVariables.x0[3]
+		);
+
+		ROS_INFO_STREAM("y:");
+		for (int i = 0; i < ACADO_N; i++)
+		{
+			for (int j = 0; j < ACADO_NY; j++)
+			{
+				printf("\t%e", acadoVariables.y[i * ACADO_NY + j]);
+			}
+			printf("\n");
+		}
+		
+		ROS_INFO_STREAM("yN:");
+		ROS_INFO_STREAM(
+			" "<<acadoVariables.yN[0]<<
+			" "<<acadoVariables.yN[1]<<
+			" "<<acadoVariables.yN[2]<<
+			" "<<acadoVariables.yN[3]
+		);
+
+		ROS_INFO_STREAM("states:");
+		for (int i = 0; i < 5; i++)
+		{
+			for (int j = 0; j < 5; j++)
+			{
+				printf("\t%e", acadoWorkspace.state[i * 5 + j]);
+			}
+			printf("\n");
+		}
+		// ROS_INFO_STREAM(
+		// 	" "<<acadoWorkspace.state[0]<<
+		// 	" "<<acadoWorkspace.state[1]<<
+		// 	" "<<acadoWorkspace.state[2]<<
+		// 	" "<<acadoWorkspace.state[3]<<
+		// 	" "<<acadoWorkspace.state[4]<<
+		// 	" "<<acadoWorkspace.state[5]<<
+		// 	" "<<acadoWorkspace.state[6]<<
+		// 	" "<<acadoWorkspace.state[7]<<
+		// 	" "<<acadoWorkspace.state[8]<<
+		// 	" "<<acadoWorkspace.state[9]<<
+		// 	" "<<acadoWorkspace.state[10]<<
+		// 	" "<<acadoWorkspace.state[11]<<
+		// 	" "<<acadoWorkspace.state[12]<<
+		// 	" "<<acadoWorkspace.state[13]<<
+		// 	" "<<acadoWorkspace.state[14]<<
+		// 	" "<<acadoWorkspace.state[15]<<
+		// 	" "<<acadoWorkspace.state[16]<<
+		// 	" "<<acadoWorkspace.state[17]<<
+		// 	" "<<acadoWorkspace.state[18]<<
+		// 	" "<<acadoWorkspace.state[19]<<
+		// 	" "<<acadoWorkspace.state[20]<<
+		// 	" "<<acadoWorkspace.state[21]<<
+		// 	" "<<acadoWorkspace.state[22]<<
+		// 	" "<<acadoWorkspace.state[23]<<
+		// 	" "<<acadoWorkspace.state[24]
+		// );
+		// real_t evGx[ 160 ];this variable may be the evaulate backbround
+		// for (i = 0; i < ACADO_N; ++i)
+		// {
+		// 	for (j = 0; j < ACADO_NU; ++j)
+		// 		printf("\t%e", acadoVariables.u[i * ACADO_NU + j]);
+		// 	printf("\n");
+		// }
+		// for (int i = 0; i < count; i++)
+		// {
+		// 	/* code */
+		// }
+		
 		/* Prepare for the next step. */
 		acado_preparationStep();
 	}
@@ -247,7 +324,7 @@ int main(int argc, char **argv)
 	if( !VERBOSE )
 	printf("\n\n Average time of one real-time iteration:   %.3g microseconds\n\n", 1e6 * te / NUM_STEPS);
 
-	acado_printDifferentialVariables();
+	// acado_printDifferentialVariables();
 	acado_printControlVariables();
 	ros::Rate rate(30.0);
 

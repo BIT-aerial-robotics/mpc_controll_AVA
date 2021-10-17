@@ -20,10 +20,12 @@
 #include "acado_common.h"
 #include "acado_auxiliary_functions.h"
 #include <stdio.h>
+#include <stdlib.h>
+
 //define usual param
 #define PI 3.1415926
 #define G 9.8
-#define T 0.01//this param need to change 
+#define T 0.02//this param need to change 
 
 USING_NAMESPACE_ACADO
 DMatrix r(6,6);
@@ -143,10 +145,6 @@ controller_base::controller_base(/* args */)
                fly2_mass*(fly2_pos.x*fly2_pos.x+fly2_pos.y*fly2_pos.y)+
                fly3_mass*(fly3_pos.x*fly3_pos.x+fly3_pos.y*fly3_pos.y);
     //assignment to Mt matrix
-    // Mt(0,0) = I_sys.x;
-    // Mt(1,1) = I_sys.y;
-    // Mt(2,2) = I_sys.z;
-    // Mt(0,1) = Mt(0,2)=Mt(1,0)=Mt(1,2)=Mt(2,0)=Mt(2,1)=0;   
 }
 controller_base::~controller_base()
 {
@@ -156,35 +154,12 @@ controller_base::~controller_base()
 //class of mpc
 class mpc
 {
-private:
+public:
     /* data */
     //private member
     ros::NodeHandle nh;
     //define a controller_base class
   //  Eigen::Matrix<double, kRefSize, kSamples, Eigen::ColMajor> acado_reference_states_;
-
-/*
-  Eigen::Map<Eigen::Matrix<float, kEndRefSize, 1, Eigen::ColMajor>>
-    acado_reference_end_state_{acadoVariables.yN};
-
-  Eigen::Map<Eigen::Matrix<float, kStateSize, 1, Eigen::ColMajor>>
-    acado_initial_state_{acadoVariables.x0};
-
-  Eigen::Map<Eigen::Matrix<float, kStateSize, kSamples+1, Eigen::ColMajor>>
-    acado_states_{acadoVariables.x};
-
-  Eigen::Map<Eigen::Matrix<float, kInputSize, kSamples, Eigen::ColMajor>>
-    acado_inputs_{acadoVariables.u};
-
-  Eigen::Map<Eigen::Matrix<float, kOdSize, kSamples+1, Eigen::ColMajor>>
-    acado_online_data_{acadoVariables.od};
-
-  Eigen::Map<Eigen::Matrix<float, 4, kSamples, Eigen::ColMajor>>
-    acado_lower_bounds_{acadoVariables.lbValues};
-
-  Eigen::Map<Eigen::Matrix<float, 4, kSamples, Eigen::ColMajor>>
-    acado_upper_bounds_{acadoVariables.ubValues};
-*/
     controller_base param;
 
     Eigen::Matrix3f J;
@@ -233,6 +208,7 @@ private:
     IntermediateState mapMtMangv[3][3];//map(Mt*ang_v)
     IntermediateState mapMang_v[3];//map(Mt*ang_v)*ang_v
     
+    double states_var[12];
     //OCP ocp( 0, 1, 20 );
     //define controls
     Control u_thu_x; 
@@ -247,17 +223,19 @@ private:
     Function h;
     Function hN;
 
-    int NX    =ACADO_NX;  /* Number of differential state variables.  */
-    int NXA   =ACADO_NXA; /* Number of algebraic variables. */
-    int NU    =ACADO_NU;  /* Number of control inputs. */
+    int NX    =ACADO_NX;   /* Number of differential state variables.  */
+    int NXA   =ACADO_NXA;  /* Number of algebraic variables. */
+    int NU    =ACADO_NU;   /* Number of control inputs. */
     int NOD   =ACADO_NOD;  /* Number of online data values. */
-
     int NY    =      ACADO_NY;  /* Number of measurements/references on nodes 0..N - 1. */
     int NYN   =      ACADO_NYN; /* Number of measurements/references on node N. */
-
     int N     =      ACADO_N;   /* Number of intervals in the horizon. */
+    int NUM_STEPS  = 20;        /* Number of real-time iterations. */
     int VERBOSE=     1 ;        /* Show iterations: 1, silent: 0.  */
 
+    int iter;
+
+    int count_num_test = 0;
     //Controller controller;
     StaticReferenceTrajectory reference;
 
@@ -268,6 +246,9 @@ private:
     std_msgs::Float64 thu1;
     std_msgs::Float64 thu2;
     std_msgs::Float64 thu3;
+    //output mark value
+    std_msgs::Float64 mark;
+
     //publister list
     ros::Publisher angle1_pub;
     ros::Publisher angle2_pub;
@@ -275,6 +256,9 @@ private:
     ros::Publisher thrust1_pub;
     ros::Publisher thrust2_pub;
     ros::Publisher thrust3_pub;
+    //mpc_mark to record when change to mpc controller, bool value
+    ros::Publisher mpc_mark_pub;
+
     //input list
     geometry_msgs::Point nominal_position;      //setpoint position
     geometry_msgs::Point nominal_euler_angles;  //euler angle setpoint position
@@ -286,10 +270,21 @@ private:
     geometry_msgs::Point init_position;
     geometry_msgs::Point init_body_rate;
     geometry_msgs::Point init_velocity;
+
+    //kaidi wang 2021.10.15: define two variables to store main_position and main_eular_angles
+    geometry_msgs::Point hover_position;
+    geometry_msgs::Point hover_attitude;
+
+    //mode switch msg
+    std_msgs::Bool mode_switch;
+    //init switch
+    int init_fun_switch;
     std_msgs::Bool start_pub_att;
     std_msgs::Float64 node1_yaw;
     std_msgs::Float64 node2_yaw;
     std_msgs::Float64 node3_yaw;
+
+    double ref_n[ACADO_NY]; 
 
     //subscriber list
     //geometry_msgs::Point
@@ -303,8 +298,11 @@ private:
     ros::Subscriber init_pos_cmd_sub ;	        //init cmd publish: position
     ros::Subscriber init_body_rates_cmd_sub ;	//init cmd publish: body_rates
     ros::Subscriber init_velocity_cmd_sub ;	    //init cmd publish: velocity
+
     //std_msgs::Bool
     ros::Subscriber control_start_sub_att ;	    //control switch of when publish attitude to child node, besides control when start the controller  
+    ros::Subscriber mode_switch_sub;
+    
     //subscribe the bias of psi angle that each child flight needed
     //std_msgs::Float64
     ros::Subscriber psi_bias_1_sub;
@@ -315,8 +313,6 @@ private:
     Eigen::Matrix3f pos_mat(double x,double y,double z);
     //the state function of mpc controller
     void mpc_state_function();
-    //init the solver of mpc controller
-    void init_mpc();
     //the slover of mpc controller
     void mpc_solver();
     //real init funciton of mpc controller
@@ -328,11 +324,15 @@ private:
     Eigen::Vector4f alloc(Eigen::Vector3f f,double psi_cmd);
     // kaidi wang love gaoling
 
+    //convert euler angle to rotation matrix
+    Eigen::Matrix3f euler_to_rotation_mat(geometry_msgs::Point angle);
 
     //basic function list
     void init_publisher();
     void init_subscriber();
     void output_publish(geometry_msgs::Point ang1,geometry_msgs::Point ang2,geometry_msgs::Point ang3,std_msgs::Float64 thu1,std_msgs::Float64 thu2,std_msgs::Float64 thu3);
+    
+    
     //callback function list
     void nominal_position_sub_cb(const geometry_msgs::Point::ConstPtr& msg );
     void nominal_eular_angles_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
@@ -346,6 +346,8 @@ private:
     void init_velocity_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
 
     void control_start_sub_att_cb(const std_msgs::Bool::ConstPtr& msg);
+    void mode_switch_sub_cb(const std_msgs::Bool::ConstPtr& msg);
+
     void psi_bias_1_sub_cb(const std_msgs::Float64::ConstPtr& msg);
     void psi_bias_2_sub_cb(const std_msgs::Float64::ConstPtr& msg);
     void psi_bias_3_sub_cb(const std_msgs::Float64::ConstPtr& msg);
