@@ -13,14 +13,19 @@
 #include <dynamic_reconfigure/server.h>
 #include <Eigen/Dense>
 #include <math.h>
+//include memory file
+#include <memory>
+#include <ros/ros.h>
+#include <stdio.h>
+#include <stdlib.h>
 //acado library
 #include <acado_toolkit.hpp>
 #include <acado_gnuplot.hpp>
-#include <ros/ros.h>
+#include <acado_optimal_control.hpp>
+
 #include "acado_common.h"
 #include "acado_auxiliary_functions.h"
-#include <stdio.h>
-#include <stdlib.h>
+
 
 //define usual param
 #define PI 3.1415926
@@ -159,7 +164,7 @@ public:
     //private member
     ros::NodeHandle nh;
     //define a controller_base class
-  //  Eigen::Matrix<double, kRefSize, kSamples, Eigen::ColMajor> acado_reference_states_;
+    //Eigen::Matrix<double, kRefSize, kSamples, Eigen::ColMajor> acado_reference_states_;
     controller_base param;
 
     Eigen::Matrix3f J;
@@ -173,6 +178,11 @@ public:
     //distributor param list
     Eigen::Vector3f thrust_u;     //thrust vector
     Eigen::Vector3f torques_u;    //torque vector
+
+    //before filter function thrust and torque
+    Eigen::Vector3f in_thrust;
+    Eigen::Vector3f in_torque;
+
     Eigen::Vector3f lamda1;
     Eigen::Vector3f lamda2;
     Eigen::Vector3f lamda3;
@@ -223,21 +233,72 @@ public:
     Function h;
     Function hN;
 
-    int NX    =ACADO_NX;   /* Number of differential state variables.  */
-    int NXA   =ACADO_NXA;  /* Number of algebraic variables. */
-    int NU    =ACADO_NU;   /* Number of control inputs. */
-    int NOD   =ACADO_NOD;  /* Number of online data values. */
+    int NX    = ACADO_NX;   /* Number of differential state variables.  */
+    int NXA   = ACADO_NXA;  /* Number of algebraic variables. */
+    int NU    = ACADO_NU;   /* Number of control inputs. */
+    int NOD   = ACADO_NOD;  /* Number of online data values. */
     int NY    =      ACADO_NY;  /* Number of measurements/references on nodes 0..N - 1. */
     int NYN   =      ACADO_NYN; /* Number of measurements/references on node N. */
     int N     =      ACADO_N;   /* Number of intervals in the horizon. */
     int NUM_STEPS  = 20;        /* Number of real-time iterations. */
-    int VERBOSE=     1 ;        /* Show iterations: 1, silent: 0.  */
+    int VERBOSE    = 1 ;        /* Show iterations: 1, silent: 0.  */
 
     int iter;
 
     int count_num_test = 0;
+
+    //acado up and low bounder value
+    //position bound
+    double u_pos_x;
+    double l_pos_x;
+    double u_pos_y;
+    double l_pos_y;
+    double u_pos_z;
+    double l_pos_z; 
+    //attitude bound
+    double u_ang_x;
+    double l_ang_x;
+    double u_ang_y;
+    double l_ang_y;
+    double u_ang_z;
+    double l_ang_z;
+    //velocity bound
+    double u_vel_x;
+    double l_vel_x;
+    double u_vel_y;
+    double l_vel_y;
+    double u_vel_z;
+    double l_vel_z;
+    //ang velocity bound
+    double u_ang_vel_x;
+    double l_ang_vel_x;
+    double u_ang_vel_y;
+    double l_ang_vel_y;
+    double u_ang_vel_z;
+    double l_ang_vel_z;
+    //thrust and torque bound
+    double u_thrust_x;
+    double l_thrust_x;
+    double u_thrust_y;
+    double l_thrust_y;
+    double u_thrust_z;
+    double l_thrust_z;
+    double u_torque_x;
+    double l_torque_x;
+    double u_torque_y;
+    double l_torque_y;
+    double u_torque_z;
+    double l_torque_z;
     //Controller controller;
     StaticReferenceTrajectory reference;
+
+    //param of first-order filter
+    double a_thu_x; 
+    double a_thu_y; 
+    double a_thu_z; 
+    double a_tor_x; 
+    double a_tor_y; 
+    double a_tor_z;
 
     //output list
     geometry_msgs::Point ang1;
@@ -271,6 +332,12 @@ public:
     geometry_msgs::Point init_body_rate;
     geometry_msgs::Point init_velocity;
 
+    //define some varable to store reference value
+    geometry_msgs::Point r_pos;
+    geometry_msgs::Point r_att;
+    geometry_msgs::Point r_vel_pos;
+    geometry_msgs::Point r_vel_ang;
+
     //kaidi wang 2021.10.15: define two variables to store main_position and main_eular_angles
     geometry_msgs::Point hover_position;
     geometry_msgs::Point hover_attitude;
@@ -278,7 +345,7 @@ public:
     //mode switch msg
     std_msgs::Bool mode_switch;
     //init switch
-    int init_fun_switch;
+    int init_fun_switch ;
     std_msgs::Bool start_pub_att;
     std_msgs::Float64 node1_yaw;
     std_msgs::Float64 node2_yaw;
@@ -318,11 +385,24 @@ public:
     //real init funciton of mpc controller
     void init_mpc_fun();
 
+    void get_input();
+    void get_state();
+    void update(
+        geometry_msgs::Point position, 
+        geometry_msgs::Point attitude,
+        geometry_msgs::Point vel_pos,
+        geometry_msgs::Point vel_ang,
+        geometry_msgs::Point ref_pos,
+        geometry_msgs::Point ref_att,
+        geometry_msgs::Point ref_vel_pos,
+        geometry_msgs::Point ref_vel_ang);
+    //filter function 
+    void fisrt_order_filter(Eigen::Vector3f in_data_thu,Eigen::Vector3f in_data_tor);
+
     //the distributor of the whole thrust and troque
     void distributor(Eigen::Vector3f thu,Eigen::Vector3f tor);
     //alloc function
     Eigen::Vector4f alloc(Eigen::Vector3f f,double psi_cmd);
-    // kaidi wang love gaoling
 
     //convert euler angle to rotation matrix
     Eigen::Matrix3f euler_to_rotation_mat(geometry_msgs::Point angle);
