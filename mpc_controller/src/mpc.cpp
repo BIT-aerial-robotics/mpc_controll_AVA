@@ -280,13 +280,13 @@ void mpc::mpc_state_function()
 	h << ang_vel_pitch;
 	h << ang_vel_yaw;
 
-	//u thrust x,y
-	h << u_thu_x;
-	h << u_thu_y;
-	//u torque x,y,z
-	h << u_torque_x;
-	h << u_torque_y;
-	h << u_torque_z;
+	// //u thrust x,y
+	// h << u_thu_x;
+	// h << u_thu_y;
+	// //u torque x,y,z
+	// h << u_torque_x;
+	// h << u_torque_y;
+	// h << u_torque_z;
 	// //acc
 	// h << acc[0];
 	// h << acc[1];
@@ -295,6 +295,7 @@ void mpc::mpc_state_function()
 	// h << ang_acc[0];
 	// h << ang_acc[1];
 	// h << ang_acc[2];
+
 	//the last state function
 	hN<< pos_x;
 	hN<< pos_y;
@@ -308,6 +309,7 @@ void mpc::mpc_state_function()
 	hN<< ang_vel_roll;
 	hN<< ang_vel_pitch;
 	hN<< ang_vel_yaw;
+
 	// const int N  = 10;
 	// const int Ni = 4;
 	// const double Ts = 0.01;
@@ -335,13 +337,13 @@ void mpc::mpc_state_function()
 	W(10,10) = 2;
 	W(11,11) = 2;
 
-	//thrust
-	W(12,12) = 2;// thrust x
-	W(13,13) = 2;// thrust y
-	//torque
-	W(14,14) = 2;// torque x
-	W(15,15) = 2;// torque y
-	W(16,16) = 2;// torque z
+	// //thrust
+	// W(12,12) = 2;// thrust x
+	// W(13,13) = 2;// thrust y
+	// //torque
+	// W(14,14) = 2;// torque x
+	// W(15,15) = 2;// torque y
+	// W(16,16) = 2;// torque z
 
 	// //acc
 	// W(12,12) = 0.1;
@@ -367,6 +369,7 @@ void mpc::mpc_state_function()
 	WN(10,10)= 2;//ang vel y
 	WN(11,11)= 2;//ang vel z
 
+
 	// WN *=10;
 	// Q(15,15) = 1;
 	// Q(16,16) = 1;
@@ -379,7 +382,7 @@ void mpc::mpc_state_function()
 	ocp.minimizeLSQEndTerm(WN,hN);
 	//constraints from dynamic model
 	ocp.subjectTo( f );
-//position
+	//position
 	ocp.subjectTo( l_pos_x <= pos_x <= u_pos_x );
 	ocp.subjectTo( l_pos_y <= pos_y <= u_pos_y );
 	ocp.subjectTo( l_pos_z <= pos_z <= u_pos_z );
@@ -549,13 +552,12 @@ void mpc::mpc_solver()
 	acado_printControlVariables();
 
 	acado_feedbackStep();
-	acado_shiftStates(2, 0, 0);
-	acado_shiftControls(0);
-	acado_shiftStates(2, 0, 0);
-	acado_shiftControls(0);
-	acado_shiftStates(2, 0, 0);
-	acado_shiftControls(0);
-
+	// acado_shiftStates(2, 0, 0);
+	// acado_shiftControls(0);
+	// acado_shiftStates(2, 0, 0);
+	// acado_shiftControls(0);
+	// acado_shiftStates(2, 0, 0);
+	// acado_shiftControls(0);
 	acado_preparationStep();
 	
 }
@@ -800,8 +802,6 @@ void mpc::get_input()
 	// torques_u[2]=acadoVariables.u[5];
 	}
 	
-
-	ROS_INFO_STREAM("gaoling and kaidi ");
 	// ROS_INFO_STREAM("u:"<<thrust_u[0]<<" "<<thrust_u[1]<<" "<<thrust_u[2]
 	// <<" "<<torques_u[0]<<" "<<torques_u[1]<<" "<<torques_u[2]);
 	distributor(thrust_u,torques_u);
