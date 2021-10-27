@@ -45,4 +45,9 @@ x,y reference is 0 m
 
 ### Time verying reference postion and attitude simulation image
 ![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/roll%20pitch%20and%20yaw.png)
+Set the speed in the x direction to 0.5m/s, and finally reach the position of 2 meters. Set the speed in the y direction to 0.5m/s, and finally reach the position of 1 meter. Set the speed in the z direction to 0.5m/s, and finally reach the position of -4 meters.
+
+As shown in the figure, the speed tracking is not very good.
+
 ![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/x%20y%20z.png)
+Set the angular velocity of roll, pitch and yaw angle to 0.2rad/s, the final yaw angle reaches 0.2rad, the roll angle reaches 0.5rad, and the pitch angle reaches 0.1rad.
