@@ -6,5 +6,28 @@ This code is the MPC controller of the Aerial Vehicles Assembly(AVA) platform. I
 As shown in the figure, if the node get_master_make_m publishes data 1 to /mode_switch, run the mpc_controller node, otherwise run the controller node. The output of the controller node and the mpc_controller node are the same, both are the attitude and pulling force of the three-shelf aircraft. The plant node is the dynamic simulation model of the AVA platform.
 
 
-1. Use ACADO to realize the relevant code explanation of MPC controller
+## 1. File structure
+mpc_controller/FindACADO.cmake : ACADO Toolkit package configuration file
 
+mpc_controller/src/mpc.cpp : ros node main function
+
+mpc_controller/include/mpc.h： Class definition header file
+
+mpc_controller/qpoases: qpOASES open source library
+
+acado_mpc_export: ACADO code generation folder
+
+## 2. ACADO related code description
+### void mpc_state_function()
+Generate a library for solving ocp problems
+### void init_mpc_fun()
+Initialization function
+### void get_input()
+Function to get control value
+### void get_state()
+Get states value
+### void update(...);
+Update states value and reference value
+
+## 3. Simulation experiment image
+### 
