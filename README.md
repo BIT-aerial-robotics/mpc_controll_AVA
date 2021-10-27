@@ -44,4 +44,5 @@ x,y reference is 0 m
 
 
 ### Time verying reference postion and attitude simulation image
-
+![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/roll%20pitch%20and%20yaw.png)
+![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/x%20y%20z.png)
