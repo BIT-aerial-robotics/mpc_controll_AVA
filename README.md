@@ -33,8 +33,10 @@ Update states value and reference value
 ### Simulation experiment of switching controller to keep the platform hovering
 ![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/roll%20pitch%20yaw.png)
 roll and pitch reference is zero and yaw angle reference is 1.62rad. 
+
 ![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/z.png)
 z reference is 0.5m
+
 ![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/x%2Cy.png)
 x,y reference is 0 m
 
