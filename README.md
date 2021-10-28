@@ -30,7 +30,11 @@ Get states value
 Update states value and reference value
 
 ## 3. Simulation experiment image
-### Simulation experiment of switching controller to keep the platform hovering
+### Simulation experiment of switching controller to keep the platform hovering 1
+![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/attitude.png)
+![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/x%20y%20.png)
+![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/z%20pos.png)
+### Simulation experiment of switching controller to keep the platform hovering 2
 ![image](https://github.com/BIT-aerial-robotics/mpc_controll_AVA/blob/master/roll%20pitch%20yaw.png)
 roll and pitch reference is zero and yaw angle reference is 1.62rad. 
 
