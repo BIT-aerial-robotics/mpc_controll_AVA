@@ -420,7 +420,9 @@ public:
         Eigen::Vector3f thrust,    //thrust vector
         Eigen::Vector3f torque);
     //filter function 
-    void fisrt_order_filter(Eigen::Vector3f in_data_thu,Eigen::Vector3f in_data_tor);
+    void fisrt_order_filter(Eigen::Vector3f in_data_thu, Eigen::Vector3f in_data_tor);
+    //measurements message data filter
+    void measurements_filter(geometry_msgs::Point input,geometry_msgs::Point* output,double a_x,double a_y,double a_z);
 
     //the distributor of the whole thrust and troque
     void distributor(Eigen::Vector3f thu,Eigen::Vector3f tor);
