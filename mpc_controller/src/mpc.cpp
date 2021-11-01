@@ -26,7 +26,108 @@ mpc::mpc(ros::NodeHandle* nodehandle):nh(*nodehandle)
 	nominal_euler_angles.y = init_euler_angles.y;
 	nominal_euler_angles.z = init_euler_angles.z;
 
+	//thrust and torque init
+	for (int i = 0; i < 3; i++)
+	{
+		in_thrust[i]=0;
+		in_torque[i]=0;
+	}
 
+
+	//kaidi wang need to generate the acado library called once mpc state function
+	ROS_INFO_STREAM("Whether the control issue needs to be regenerated:Y/n");
+	std::string str;
+	std::getline(std::cin,str);
+	if (str == "Y")
+	{
+		ROS_INFO_STREAM("generate new control issue.");
+		mpc_state_function();
+		ros::shutdown();// close the ros node
+	}
+	else
+	{
+		ROS_INFO_STREAM("don't generate new control issue and go ahead.");
+	}
+
+	/* Clear solver memory. */
+	memset(&acadoWorkspace, 0, sizeof( acadoWorkspace ));
+	memset(&acadoVariables, 0, sizeof( acadoVariables ));
+
+	//init mark with 0
+	mark.data = 0;
+	init_fun_switch = 0;
+    calc_timer = nh.createTimer(ros::Duration(T), &mpc::calc_cb, this);
+}
+
+//publish function, all publish is in NED frame
+void mpc::init_publisher()
+{
+    //init this publisher pub, and then i can use these handle in every private member function of this class
+	angle1_pub = nh.advertise<geometry_msgs::Point>("/angle1",10,this);
+	angle2_pub = nh.advertise<geometry_msgs::Point>("/angle2",10,this);
+	angle3_pub = nh.advertise<geometry_msgs::Point>("/angle3",10,this);
+
+	thrust1_pub = nh.advertise<std_msgs::Float64>("/thrust1",10,this);
+	thrust2_pub = nh.advertise<std_msgs::Float64>("/thrust2",10,this);
+	thrust3_pub = nh.advertise<std_msgs::Float64>("/thrust3",10,this);
+
+	//publish the mpc controller running mark
+	mpc_mark_pub = nh.advertise<std_msgs::Float64>("/mark",10,this);
+}
+
+
+//subscriber function
+void mpc::init_subscriber()
+{
+    nominal_position_sub = nh.subscribe<geometry_msgs::Point>
+	("/nominal_position",1,&mpc::nominal_position_sub_cb,this);
+	nominal_eular_angles_sub = nh.subscribe<geometry_msgs::Point>
+	("/nominal_euler_angles",1,&mpc::nominal_eular_angles_sub_cb, this);
+	main_position_sub = nh.subscribe<geometry_msgs::Point>
+	("/main_position",1,&mpc::main_position_sub_cb,this);
+	main_velocity_sub = nh.subscribe<geometry_msgs::Point>
+	("/main_velocity",1,&mpc::main_velocity_sub_cb,this);
+	main_eular_angles_sub = nh.subscribe<geometry_msgs::Point>
+	("/main_euler_angles",1,&mpc::main_eular_angles_sub_cb,this);
+	main_body_rates_sub = nh.subscribe<geometry_msgs::Point>
+	("/main_body_rates",1,&mpc::main_body_rates_sub_cb,this);
+	init_euler_angles_cmd_sub = nh.subscribe<geometry_msgs::Point>
+	("/init_euler_angles_cmd",1,&mpc::init_euler_angles_cmd_sub_cb,this);
+	init_pos_cmd_sub = nh.subscribe<geometry_msgs::Point>
+	("/init_position_cmd",1,&mpc::init_pos_cmd_sub_cb,this);
+	init_body_rates_cmd_sub = nh.subscribe<geometry_msgs::Point>
+	("/init_body_rates_cmd",1,&mpc::init_body_rates_cmd_sub_cb,this);
+	init_velocity_cmd_sub = nh.subscribe<geometry_msgs::Point>
+	("/init_velocity_cmd",1,&mpc::init_velocity_cmd_sub_cb,this);
+
+	control_start_sub_att = nh.subscribe<std_msgs::Bool>
+	("/start_pub_att",1,&mpc::control_start_sub_att_cb,this);
+	//kaidi wang, 2021.10.13, mode_switch_sub define
+	mode_switch_sub       = nh.subscribe<std_msgs::Bool>
+	("/mode_switch",1,&mpc::mode_switch_sub_cb,this);
+	
+	psi_bias_1_sub = nh.subscribe<std_msgs::Float64>("/psi_bias_1",1,&mpc::psi_bias_1_sub_cb,this);
+	psi_bias_2_sub = nh.subscribe<std_msgs::Float64>("/psi_bias_2",1,&mpc::psi_bias_2_sub_cb,this);
+	psi_bias_3_sub = nh.subscribe<std_msgs::Float64>("/psi_bias_3",1,&mpc::psi_bias_3_sub_cb,this);
+}
+
+//generate pos matrix
+Eigen::Matrix3f mpc::pos_mat(double x,double y,double z)
+{
+	Eigen::Matrix3f s;
+	s(0,0)=s(1,1)=s(2,2)=0;
+	s(0,1)=-z;
+	s(0,2)= y;
+	s(1,0)= z;
+	s(1,2)=-x;
+	s(2,0)=-y;
+	s(2,1)= x;
+	return s;
+}
+
+//the state function of the mpc controller
+void mpc::mpc_state_function()
+{
 	//position bound
 	u_pos_x=100;
 	l_pos_x=-100;
@@ -89,109 +190,11 @@ mpc::mpc(ros::NodeHandle* nodehandle):nh(*nodehandle)
     a_tor_x=0.1; 
     a_tor_y=0.1; 
     a_tor_z=0.1;
-	//thrust and torque init
-	for (int i = 0; i < 3; i++)
-	{
-		in_thrust[i]=0;
-		in_torque[i]=0;
-	}
-
-
-	//kaidi wang need to generate the acado library called once mpc state function
-	ROS_INFO_STREAM("Whether the control issue needs to be regenerated:Y/n");
-	std::string str;
-	std::getline(std::cin,str);
-	if (str == "Y")
-	{
-		ROS_INFO_STREAM("generate new control issue.");
-		mpc_state_function();
-		ros::shutdown();// close the ros node
-	}
-	else
-	{
-		ROS_INFO_STREAM("don't generate new control issue and go ahead.");
-	}
-	//init mark with 0
-	mark.data = 0;
-	init_fun_switch = 0;
-    calc_timer = nh.createTimer(ros::Duration(T), &mpc::calc_cb, this);
-}
-
-//publish function, all publish is in NED frame
-void mpc::init_publisher()
-{
-    //init this publisher pub, and then i can use these handle in every private member function of this class
-	angle1_pub = nh.advertise<geometry_msgs::Point>("/angle1",10,this);
-	angle2_pub = nh.advertise<geometry_msgs::Point>("/angle2",10,this);
-	angle3_pub = nh.advertise<geometry_msgs::Point>("/angle3",10,this);
-
-	thrust1_pub = nh.advertise<std_msgs::Float64>("/thrust1",10,this);
-	thrust2_pub = nh.advertise<std_msgs::Float64>("/thrust2",10,this);
-	thrust3_pub = nh.advertise<std_msgs::Float64>("/thrust3",10,this);
-
-	//publish the mpc controller running mark
-	mpc_mark_pub = nh.advertise<std_msgs::Float64>("/mark",10,this);
-}
-
-
-//subscriber function
-void mpc::init_subscriber()
-{
-    nominal_position_sub = nh.subscribe<geometry_msgs::Point>
-	("/nominal_position",1,&mpc::nominal_position_sub_cb,this);
-	nominal_eular_angles_sub = nh.subscribe<geometry_msgs::Point>
-	("/nominal_euler_angles",1,&mpc::nominal_eular_angles_sub_cb, this);
-	main_position_sub = nh.subscribe<geometry_msgs::Point>
-	("/main_position",1,&mpc::main_position_sub_cb,this);
-	main_velocity_sub = nh.subscribe<geometry_msgs::Point>
-	("/main_velocity",1,&mpc::main_velocity_sub_cb,this);
-	main_eular_angles_sub = nh.subscribe<geometry_msgs::Point>
-	("/main_euler_angles",1,&mpc::main_eular_angles_sub_cb,this);
-	main_body_rates_sub = nh.subscribe<geometry_msgs::Point>
-	("/main_body_rates",1,&mpc::main_body_rates_sub_cb,this);
-	init_euler_angles_cmd_sub = nh.subscribe<geometry_msgs::Point>
-	("/init_euler_angles_cmd",1,&mpc::init_euler_angles_cmd_sub_cb,this);
-	init_pos_cmd_sub = nh.subscribe<geometry_msgs::Point>
-	("/init_position_cmd",1,&mpc::init_pos_cmd_sub_cb,this);
-	init_body_rates_cmd_sub = nh.subscribe<geometry_msgs::Point>
-	("/init_body_rates_cmd",1,&mpc::init_body_rates_cmd_sub_cb,this);
-	init_velocity_cmd_sub = nh.subscribe<geometry_msgs::Point>
-	("/init_velocity_cmd",1,&mpc::init_velocity_cmd_sub_cb,this);
-
-
-	control_start_sub_att = nh.subscribe<std_msgs::Bool>
-	("/start_pub_att",1,&mpc::control_start_sub_att_cb,this);
-	//kaidi wang, 2021.10.13, mode_switch_sub define
-	mode_switch_sub       = nh.subscribe<std_msgs::Bool>
-	("/mode_switch",1,&mpc::mode_switch_sub_cb,this);
-	
-	psi_bias_1_sub = nh.subscribe<std_msgs::Float64>("/psi_bias_1",1,&mpc::psi_bias_1_sub_cb,this);
-	psi_bias_2_sub = nh.subscribe<std_msgs::Float64>("/psi_bias_2",1,&mpc::psi_bias_2_sub_cb,this);
-	psi_bias_3_sub = nh.subscribe<std_msgs::Float64>("/psi_bias_3",1,&mpc::psi_bias_3_sub_cb,this);
-}
-
-//generate pos matrix
-Eigen::Matrix3f mpc::pos_mat(double x,double y,double z)
-{
-	Eigen::Matrix3f s;
-	s(0,0)=s(1,1)=s(2,2)=0;
-	s(0,1)=-z;
-	s(0,2)= y;
-	s(1,0)= z;
-	s(1,2)=-x;
-	s(2,0)=-y;
-	s(2,1)= x;
-	return s;
-}
-
-//the state function of the mpc controller
-void mpc::mpc_state_function()
-{
 	//only be called once at the construction function
-	pos[0]=pos_x;
-	pos[1]=pos_y;
-	pos[2]=pos_z;
-	
+	pos[0] =pos_x;
+	pos[1] =pos_y;
+	pos[2] =pos_z;
+
 	att[0]=ang_roll;
 	att[1]=ang_pitch;
 	att[2]=ang_yaw;
@@ -243,21 +246,26 @@ void mpc::mpc_state_function()
 	//calc the acc vector
 	acc[0]=(1/param.S3Q_mass)*(rotation[0][0]*force[0]+rotation[0][1]*force[1]+rotation[0][2]*force[2]);
 	acc[1]=(1/param.S3Q_mass)*(rotation[1][0]*force[0]+rotation[1][1]*force[1]+rotation[1][2]*force[2]);
-	acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2])-G;
+	acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2])+G;
 	//calc the ang acc vector 
 	ang_acc[0]=(J.inverse())(0,0)*(tao[0]+mapMang_v[0])+(J.inverse())(0,1)*(tao[1]+mapMang_v[1])+(J.inverse())(0,2)*(tao[2]+mapMang_v[2]);
 	ang_acc[1]=(J.inverse())(1,0)*(tao[0]+mapMang_v[0])+(J.inverse())(1,1)*(tao[1]+mapMang_v[1])+(J.inverse())(1,2)*(tao[2]+mapMang_v[2]);
 	ang_acc[2]=(J.inverse())(2,0)*(tao[0]+mapMang_v[0])+(J.inverse())(2,1)*(tao[1]+mapMang_v[1])+(J.inverse())(2,2)*(tao[2]+mapMang_v[2]);
+	
+
+	// pos_vel_body[0] = rotation*
 	//Differential Equation f
-	f << dot(pos_x) == pos_vel[0];
-	f << dot(pos_y) == pos_vel[1];
-	f << dot(pos_z) == pos_vel[2];
-	f << dot(ang_roll)  == ang_vel[0];//angle vel
-	f << dot(ang_pitch) == ang_vel[1];
-	f << dot(ang_yaw)   == ang_vel[2];
-	f << dot(pos_vel_x) == acc[0];
-	f << dot(pos_vel_y) == acc[1];
-	f << dot(pos_vel_z) == acc[2];
+
+	//all states define in global frame
+	f << dot(pos_x)         == pos_vel[0];
+	f << dot(pos_y)         == pos_vel[1];
+	f << dot(pos_z)         == pos_vel[2];
+	f << dot(ang_roll)      == ang_vel[0];//angle vel
+	f << dot(ang_pitch)     == ang_vel[1];
+	f << dot(ang_yaw)       == ang_vel[2];
+	f << dot(pos_vel_x)     == acc[0];
+	f << dot(pos_vel_y)     == acc[1];
+	f << dot(pos_vel_z)     == acc[2];
 	f << dot(ang_vel_roll)  == ang_acc[0];
 	f << dot(ang_vel_pitch) == ang_acc[1];
 	f << dot(ang_vel_yaw)   == ang_acc[2];
@@ -303,12 +311,12 @@ void mpc::mpc_state_function()
 	hN<< ang_roll;
 	hN<< ang_pitch;
 	hN<< ang_yaw;
-	hN<< pos_vel_x;
-	hN<< pos_vel_y;
-	hN<< pos_vel_z;
-	hN<< ang_vel_roll;
-	hN<< ang_vel_pitch;
-	hN<< ang_vel_yaw;
+	// hN<< pos_vel_x;
+	// hN<< pos_vel_y;
+	// hN<< pos_vel_z;
+	// hN<< ang_vel_roll;
+	// hN<< ang_vel_pitch;
+	// hN<< ang_vel_yaw;
 
 	// const int N  = 10;
 	// const int Ni = 4;
@@ -323,19 +331,19 @@ void mpc::mpc_state_function()
 	//position
 	W(0,0) = 100;
 	W(1,1) = 100;
-	W(2,2) = 500;
+	W(2,2) = 100;
 	//angle
-	W(3,3) =1.5;
-	W(4,4) =1.5;
-	W(5,5) =1.5;
+	W(3,3) =100;
+	W(4,4) =100;
+	W(5,5) =100;
 	//pos vel
-	W(6,6) = 5;
-	W(7,7) = 5;
-	W(8,8) = 30;
+	W(6,6) = 1;
+	W(7,7) = 1;
+	W(8,8) = 1;
 	//ang vel
-	W(9,9)   = 2;
-	W(10,10) = 2;
-	W(11,11) = 2;
+	W(9,9)   = 1;
+	W(10,10) = 1;
+	W(11,11) = 1;
 
 	// //thrust
 	// W(12,12) = 2;// thrust x
@@ -355,19 +363,19 @@ void mpc::mpc_state_function()
 	// W(17,17) = 0.1;
 
 	// WN matrix 
-	WN(0,0)= 100;//pos x
-	WN(1,1)= 100;//pos y
-	WN(2,2)= 500;//pos z
+	WN(0,0)= 1;//pos x
+	WN(1,1)= 1;//pos y
+	WN(2,2)= 1;//pos z
 	WN(3,3)= 1;//ang x
 	WN(4,4)= 1;//ang y
 	WN(5,5)= 1;//ang z
 
-	WN(6,6)= 1;//vel x
-	WN(7,7)= 1;//vel y
-	WN(8,8)= 30;//vel z
-	WN(9,9)= 2;  //ang vel x
-	WN(10,10)= 2;//ang vel y
-	WN(11,11)= 2;//ang vel z
+	// WN(6,6)= 10;//vel x
+	// WN(7,7)= 10;//vel y
+	// WN(8,8)= 30;//vel z
+	// WN(9,9)= 2;  //ang vel x
+	// WN(10,10)= 2;//ang vel y
+	// WN(11,11)= 2;//ang vel z
 
 
 	// WN *=10;
@@ -407,7 +415,7 @@ void mpc::mpc_state_function()
 	ocp.subjectTo( l_torque_z <= u_tor_z <= u_torque_z );
 	
  	OptimizationAlgorithm algorithm(ocp);
-	//SETTING UP THE MPC CONTROLLER:
+	// //SETTING UP THE MPC CONTROLLER:
 	OCPexport mpc_obj( ocp);
 	mpc_obj.set( HESSIAN_APPROXIMATION,GAUSS_NEWTON);
 	mpc_obj.set( DISCRETIZATION_TYPE,  MULTIPLE_SHOOTING);
@@ -415,14 +423,19 @@ void mpc::mpc_state_function()
 	mpc_obj.set( NUM_INTEGRATOR_STEPS, N); //mpc_obj.set( NUM_INTEGRATOR_STEPS, N * Ni);
 	mpc_obj.set( SPARSE_QP_SOLUTION, FULL_CONDENSING_N2);//mpc_obj.set( SPARSE_QP_SOLUTION, FULL_CONDENSING);
 	mpc_obj.set( HOTSTART_QP, YES);        
-	mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);//mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);
+	mpc_obj.set( INTEGRATOR_TYPE,INT_IRK_GL4);//mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);
+
 	mpc_obj.set( GENERATE_TEST_FILE, YES);
 	mpc_obj.set( GENERATE_MAKE_FILE, YES);
 	mpc_obj.set( GENERATE_MATLAB_INTERFACE, YES);
 	mpc_obj.set( GENERATE_SIMULINK_INTERFACE, YES);
 
- 	mpc_obj.set(CG_USE_OPENMP, YES); 
+ 	mpc_obj.set( CG_USE_OPENMP, YES); 
 	mpc_obj.set( USE_SINGLE_PRECISION, YES);   
+
+
+    // mpc_obj.set(CG_HARDCODE_CONSTRAINT_VALUES,    NO);        // set on runtime
+    // mpc_obj.set(CG_USE_VARIABLE_WEIGHTING_MATRIX, YES);       // time-varying costs
 	// mpc_obj.set(CG_USE_VARIABLE_WEIGHTING_MATRIX, YES);
 	// mpc_obj.set(FIX_INITIAL_STATE, YES);
 	if (mpc_obj.exportCode( "acado_mpc_export" ) != SUCCESSFUL_RETURN)
@@ -440,12 +453,10 @@ void mpc::mpc_state_function()
 // real init state function of mpc controller
 void mpc::init_mpc_fun()
 {
-	//first of all, i need to get the feedback data
-	ros::spinOnce();
-
+	// old function section 
 	//call the initializeSolver function
 	acado_initializeSolver();
-	//init x0 , same as input.x0
+	//initialize the states and controls
 	acadoVariables.x0[0]  = hover_position.x;//init position x
 	acadoVariables.x0[1]  = hover_position.y;//init position y
 	acadoVariables.x0[2]  = hover_position.z;//init position z
@@ -461,7 +472,7 @@ void mpc::init_mpc_fun()
 	acadoVariables.x0[9]  = 0;//main_body_rates.x; //init ang_vel x
 	acadoVariables.x0[10] = 0;//main_body_rates.y;//init ang_vel y
 	acadoVariables.x0[11] = 0;//main_body_rates.z;//init ang_vel z
-	//init x
+	//initialize the states
 	for(int i=0;i<NX ; i++)
 	{
 		for (int j = 0; j < N + 1; j++)
@@ -470,7 +481,9 @@ void mpc::init_mpc_fun()
 			acadoVariables.x[i+j*NX]=acadoVariables.x0[i];
 		}
 	}
-	//init u0 
+
+
+	//initialize the control 
 	double u0[NU]; //vector of control 
 	u0[0]=0;
 	u0[1]=0;
@@ -478,7 +491,6 @@ void mpc::init_mpc_fun()
 	u0[3]=0;
 	u0[4]=0;
 	u0[5]=0;
-	// init u
 	for (int i = 0; i < NU; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -495,17 +507,12 @@ void mpc::init_mpc_fun()
 	ref[3] = hover_attitude.x;
 	ref[4] = hover_attitude.y;
 	ref[5] = hover_attitude.z;
-	ref[6] = 0;//vel_x
-	ref[7] = 0;//vel_y
-	ref[8] = 0;//vel_z
-	ref[9] = 0;//vel_roll
-	ref[10] = 0;//vel_pitch
-	ref[11] = 0;//vel_yaw
-	ref[12] = 0;//vel_y
-	ref[13] = 0;//vel_z
-	ref[14] = 0;//vel_roll
-	ref[15] = 0;//vel_pitch
-	ref[16] = 0;//vel_yaw
+	// ref[6] = 0;//vel_x
+	// ref[7] = 0;//vel_y
+	// ref[8] = 0;//vel_z
+	// ref[9] = 0;//vel_roll
+	// ref[10] = 0;//vel_pitch
+	// ref[11] = 0;//vel_yaw
 	for (int i = 0; i < NY; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -522,45 +529,83 @@ void mpc::init_mpc_fun()
 	acadoVariables.yN[4] = hover_attitude.y;
 	acadoVariables.yN[5] = hover_attitude.z;
 
-	acadoVariables.yN[6] = 0;
-	acadoVariables.yN[7] = 0;
-	acadoVariables.yN[8] = 0;
-	acadoVariables.yN[9] = 0;
-	acadoVariables.yN[10] = 0;
-	acadoVariables.yN[11] = 0;
+	// acadoVariables.yN[6] = 0;
+	// acadoVariables.yN[7] = 0;
+	// acadoVariables.yN[8] = 0;
+	// acadoVariables.yN[9] = 0;
+	// acadoVariables.yN[10] = 0;
+	// acadoVariables.yN[11] = 0;
+
+
+	//prepare first step
 	acado_preparationStep();
 }
+
+
 //the solver of mpc controller,need to be called at every loop
 void mpc::mpc_solver()
 {
 
-	// acadoVariables.yN[0] = hover_position.x;
-	// acadoVariables.yN[1] = hover_position.y;
-	// acadoVariables.yN[2] = acadoVariables.yN[2] -0.2*0.012;
-	// acadoVariables.yN[3] = hover_attitude.x;
-	// acadoVariables.yN[4] = hover_attitude.y;
-	// acadoVariables.yN[5] = hover_attitude.z;
-	// if(acadoVariables.yN[0]>=hover_position.x+0.8)
-	// {
-	// 	acadoVariables.yN[0]=hover_position.x+0.8;
-	// }
-	// if(acadoVariables.yN[2]>=hover_position.z-0.8)
-	// {
-	// 	acadoVariables.yN[2]=hover_position.z-0.8;
-	// }
+	// update state and reference
+	// update(
+	// 	main_position,
+	// 	main_eular_angles,
+	// 	main_velocity,
+	// 	main_body_rates,
+	// 	r_pos,
+	// 	r_att,
+	// 	r_vel_pos,
+	// 	r_vel_ang,
+	// 	thrust_u,
+	// 	torques_u);
+
+	//perform the feedback step
+	acado_tic(&t);
+	acado_feedbackStep();
+	t2 = acado_toc( &t );
+
 	acado_printDifferentialVariables();
 	acado_printControlVariables();
 
-	acado_feedbackStep();
-	// acado_shiftStates(2, 0, 0);
-	// acado_shiftControls(0);
-	// acado_shiftStates(2, 0, 0);
-	// acado_shiftControls(0);
-	// acado_shiftStates(2, 0, 0);
-	// acado_shiftControls(0);
+	// for (int i = 0; i < NX; ++i)
+	// 	acadoVariables.x0[ i ] = acadoVariables.x[NX + i]+getRandData(-0.02,0.02);
+	update(
+		main_position,
+		main_eular_angles,
+		main_velocity,
+		main_body_rates,
+		r_pos,
+		r_att,
+		r_vel_pos,
+		r_vel_ang,
+		thrust_u,
+		torques_u);
+
+	// acadoVariables.x0[ 0 ] = acadoVariables.x[NX + 0];//+getRandData(-0.5,0.5)
+	// acadoVariables.x0[ 1 ] = acadoVariables.x[NX + 1];
+	// acadoVariables.x0[ 2 ] = acadoVariables.x[NX + 2];
+	// acadoVariables.x0[ 3 ] = acadoVariables.x[NX + 3];
+	// acadoVariables.x0[ 4 ] = acadoVariables.x[NX + 4];
+	// acadoVariables.x0[ 5 ] = acadoVariables.x[NX + 5];
+	// acadoVariables.x0[ 6 ] = acadoVariables.x[NX + 6];
+	// acadoVariables.x0[ 7 ] = acadoVariables.x[NX + 7];
+	// acadoVariables.x0[ 8 ] = acadoVariables.x[NX + 8];
+	// acadoVariables.x0[ 9 ] = acadoVariables.x[NX + 9];
+	// acadoVariables.x0[ 10] = acadoVariables.x[NX + 10];
+	// acadoVariables.x0[ 11] = acadoVariables.x[NX + 11];
+
+	get_input();
+	get_state();
+
+	acado_tic(&t);
 	acado_preparationStep();
-	
+	t1 = acado_toc( &t );
+
+	prepSum += t1;
+	fdbSum  += t2;
 }
+
+
 //the distributor of the whole thrust and torque
 void mpc::distributor(Eigen::Vector3f thu,Eigen::Vector3f tor)
 {
@@ -682,10 +727,26 @@ void mpc::main_position_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 	// ROS_INFO_STREAM("main_position: ");
 	// ROS_INFO_STREAM(main_position);
 }
+
+
 //velocity back, chk
 void mpc::main_velocity_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 {
-	main_velocity = *msg;
+	geometry_msgs::Point vel;
+	vel = *msg;
+	
+	Eigen::Vector3f vel_body,vel_ground;
+	vel_body(0) = vel.x;
+	vel_body(1) = vel.y;
+	vel_body(2) = vel.z;
+	//update rotation matrix
+	r_mat = euler_to_rotation_mat(main_eular_angles);
+	//trans body frame velocity to global frame velocity
+	vel_ground = r_mat*vel_body;
+	main_velocity.x = vel_ground(0);
+	main_velocity.y = vel_ground(1);
+	main_velocity.z = vel_ground(2);
+	// transform body frame to global frame 
 	// ROS_INFO_STREAM("main_velocity: ");
 	// ROS_INFO_STREAM(main_velocity);
 }
@@ -785,39 +846,39 @@ void mpc::get_input()
 	// (-10 <= acadoVariables.u[3] <= 10)&&
 	// (-10 <= acadoVariables.u[4] <= 10)&&
 	// (-10 <= acadoVariables.u[5] <= 10))
-	fisrt_order_filter(in_thrust,in_torque);
-	{
-	in_thrust[0] =std::max(l_thrust_x,std::min(u_thrust_x,(double)acadoVariables.u[0]));
-	in_thrust[1] =std::max(l_thrust_y,std::min(u_thrust_y,(double)acadoVariables.u[1]));
-	in_thrust[2] =std::max(l_thrust_z,std::min(u_thrust_z,(double)acadoVariables.u[2]));
-	in_torque[0] =std::max(l_torque_x,std::min(u_torque_x,(double)acadoVariables.u[3]));
-	in_torque[1] =std::max(l_torque_y,std::min(u_torque_y,(double)acadoVariables.u[4]));
-	in_torque[2] =std::max(l_torque_z,std::min(u_torque_z,(double)acadoVariables.u[5]));
+	// fisrt_order_filter(in_thrust,in_torque);
+	// in_thrust[0] =std::max(l_thrust_x,std::min(u_thrust_x,(double)acadoVariables.u[0]));
+	// in_thrust[1] =std::max(l_thrust_y,std::min(u_thrust_y,(double)acadoVariables.u[1]));
+	// in_thrust[2] =std::max(l_thrust_z,std::min(u_thrust_z,(double)acadoVariables.u[2]));
+	// in_torque[0] =std::max(l_torque_x,std::min(u_torque_x,(double)acadoVariables.u[3]));
+	// in_torque[1] =std::max(l_torque_y,std::min(u_torque_y,(double)acadoVariables.u[4]));
+	// in_torque[2] =std::max(l_torque_z,std::min(u_torque_z,(double)acadoVariables.u[5]));
 	
-	// thrust_u[0] =acadoVariables.u[0];
-	// thrust_u[1] =acadoVariables.u[1];
-	// thrust_u[2] =acadoVariables.u[2];
-	// torques_u[0]=acadoVariables.u[3];
-	// torques_u[1]=acadoVariables.u[4];
-	// torques_u[2]=acadoVariables.u[5];
-	}
+	thrust_u[0] =acadoVariables.u[0];
+	thrust_u[1] =acadoVariables.u[1];
+	thrust_u[2] =acadoVariables.u[2];
+	torques_u[0]=acadoVariables.u[3];
+	torques_u[1]=acadoVariables.u[4];
+	torques_u[2]=acadoVariables.u[5];
 	
-	// ROS_INFO_STREAM("u:"<<thrust_u[0]<<" "<<thrust_u[1]<<" "<<thrust_u[2]
-	// <<" "<<torques_u[0]<<" "<<torques_u[1]<<" "<<torques_u[2]);
-	distributor(thrust_u,torques_u);
-	output_publish(ang1,ang2,ang3,thu1,thu2,thu3);
+	ROS_INFO_STREAM("u:"<<thrust_u[0]<<" "<<thrust_u[1]<<" "<<thrust_u[2]
+	<<" "<<torques_u[0]<<" "<<torques_u[1]<<" "<<torques_u[2]);
 
-	// ROS_INFO_STREAM("thu1:"<<thu1.data);
+
+	distributor(thrust_u,torques_u);
+	// output_publish(ang1,ang2,ang3,thu1,thu2,thu3);
+
+	// ROS_INFO_STREAM("thu1:"  <<thu1.data);
 	// ROS_INFO_STREAM("ang1.x:"<<ang1.x);
 	// ROS_INFO_STREAM("ang1.y:"<<ang1.y);
 	// ROS_INFO_STREAM("ang1.z:"<<ang1.z);
 
-	// ROS_INFO_STREAM("thu2:"<<thu2.data);
+	// ROS_INFO_STREAM("thu2:"  <<thu2.data);
 	// ROS_INFO_STREAM("ang2.x:"<<ang2.x);
 	// ROS_INFO_STREAM("ang2.y:"<<ang2.y);
 	// ROS_INFO_STREAM("ang2.z:"<<ang2.z);
 
-	// ROS_INFO_STREAM("thu3:"<<thu3.data);
+	// ROS_INFO_STREAM("thu3:"  <<thu3.data);
 	// ROS_INFO_STREAM("ang3.x:"<<ang3.x);
 	// ROS_INFO_STREAM("ang3.y:"<<ang3.y);
 	// ROS_INFO_STREAM("ang3.z:"<<ang3.z);
@@ -839,6 +900,7 @@ void mpc::get_state()
 	<<" "<<states_var[9]<<" "<<states_var[10]<<" "<<states_var[11]
 	);
 }
+
 //refresh the state and reference value
 void mpc::update(
 	geometry_msgs::Point position, //state position
@@ -848,12 +910,17 @@ void mpc::update(
 	geometry_msgs::Point ref_pos,  //reference position
 	geometry_msgs::Point ref_att,  //reference attitude
 	geometry_msgs::Point ref_vel_pos, //reference velocity
-	geometry_msgs::Point ref_vel_ang) //reference velocity of euler angle
+	geometry_msgs::Point ref_vel_ang,
+	Eigen::Vector3f thrust,    //thrust vector
+    Eigen::Vector3f torque)   //reference velocity of euler angle
 {
+	//global NED
 	acadoVariables.x0[0]  = main_position.x;    //init position x
 	acadoVariables.x0[1]  = main_position.y;    //init position y
 	acadoVariables.x0[2]  = main_position.z;    //init position z
 	//acadoVariables.x0[2]  = -2;
+
+	//
 	acadoVariables.x0[3]  = main_eular_angles.x;//init ang x
 	acadoVariables.x0[4]  = main_eular_angles.y;//init ang y
 	acadoVariables.x0[5]  = main_eular_angles.z;//init ang z
@@ -865,8 +932,32 @@ void mpc::update(
 	acadoVariables.x0[9]  = main_body_rates.x;  //init ang_vel x
 	acadoVariables.x0[10] = main_body_rates.y;  //init ang_vel y
 	acadoVariables.x0[11] = main_body_rates.z;  //init ang_vel z
+	// for(int i=0;i<NX ; i++)
+	// {
+	// 	for (int j = 0; j < N + 1; j++)
+	// 	{
+	// 		//first row second col
+	// 		acadoVariables.x[i+j*NX]=acadoVariables.x0[i];
+	// 	}
+	// }
 
-	ROS_INFO_STREAM("ref:"<<hover_position.x<<" "<<hover_position.y<<" "<<hover_position.z
+	//initialize the control
+
+	// double u0[NU]; //vector of control 
+	// u0[0]=thrust[0];
+	// u0[1]=thrust[1];
+	// u0[2]=thrust[2];
+	// u0[3]=torque[0];
+	// u0[4]=torque[1];
+	// u0[5]=torque[2];
+	// for (int i = 0; i < NU; i++)
+	// {
+	// 	for (int j = 0; j < N; j++)
+	// 	{
+	// 		acadoVariables.u[i+j*NU]=u0[i];
+	// 	}
+	// }
+	ROS_INFO_STREAM("reference:"<<hover_position.x<<" "<<hover_position.y<<" "<<hover_position.z
 	<<" "<<hover_attitude.x<<" "<<hover_attitude.y<<" "<<hover_attitude.z);	
 
 	// ROS_INFO_STREAM(hover_position.x);
@@ -888,6 +979,42 @@ void mpc::fisrt_order_filter(Eigen::Vector3f in_data_thu,Eigen::Vector3f in_data
 	torques_u[1]= a_tor_y*in_data_tor[1]+(1-a_tor_y)*torques_u[1];
 	torques_u[2]= a_tor_z*in_data_tor[2]+(1-a_tor_z)*torques_u[2];
 }
+
+//read data from a file
+bool mpc::readDataFromFile(const char* fileName, vector<vector<double>>& data)
+{
+	ifstream file(fileName);
+	string  line;
+	if (file.is_open())
+	{
+		while (getline(file,line))
+		{
+			istringstream linestream(line);
+			vector<double> linedata;
+			double number;
+
+			while (linestream >> number)
+			{
+				linedata.push_back(number);
+			}
+			
+			data.push_back(linedata);
+		}
+
+		file.close();		
+	}
+	else	
+		return false;
+	
+	return true;
+}
+
+//get rand data
+double mpc::getRandData(double min,double max)
+{
+	return min +rand() / double(RAND_MAX/(max -min ));
+}
+
 //timer callback function
 void mpc::calc_cb(const ros::TimerEvent&)
 {
@@ -895,6 +1022,7 @@ void mpc::calc_cb(const ros::TimerEvent&)
 	{
 		if(mode_switch.data)
 		{
+			output_publish(ang1,ang2,ang3,thu1,thu2,thu3);
 			// distributor(thrust_u,torques_u);
 			// output_publish(ang1,ang2,ang3,thu1,thu2,thu3);
 		}
@@ -939,38 +1067,24 @@ int main(int argc, char **argv)
 				}
 				//recore section
 				mpc_node.init_fun_switch++;//count running times
-				//mpc mark to 1 imply that mpc controller running
 				mpc_node.mark.data = 1;//mark the time of mpc controller start
-				mpc_node.mpc_mark_pub.publish(mpc_node.mark);
-				
-				//get the input and publish and print the input value
-				mpc_node.get_input();
-				//get the state and print the states value
-				mpc_node.get_state();
-				//solver and parpare for next step
-				mpc_node.mpc_solver();
-				//update state and reference
-				mpc_node.update(
-					mpc_node.main_position,
-					mpc_node.main_eular_angles,
-					mpc_node.main_velocity,
-					mpc_node.main_body_rates,
-					mpc_node.r_pos,
-					mpc_node.r_att,
-					mpc_node.r_vel_pos,
-					mpc_node.r_vel_ang);
+				mpc_node.mpc_mark_pub.publish(mpc_node.mark);//mpc mark to 1 imply that mpc controller running
 
+				mpc_node.mpc_solver();
+
+				// debug code section
 				mpc_node.count_num_test++;
 				ROS_INFO_STREAM("times:"<<mpc_node.count_num_test);
-				if(mpc_node.count_num_test>1000)
+				if(mpc_node.count_num_test>10)
 				{
-					//ros::shutdown();// close the ros node
+					// ros::shutdown();// close the ros node
 				}
 			}
 			else
 			{
 				//if out the mpc controller then mark set to 0
-				mpc_node.mark.data = 1;
+				mpc_node.mark.data = 0;
+				mpc_node.mpc_mark_pub.publish(mpc_node.mark);
 			}
 		}
 		ros::spinOnce();

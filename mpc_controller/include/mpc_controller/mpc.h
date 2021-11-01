@@ -18,6 +18,19 @@
 #include <ros/ros.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <iomanip>
+#include <cstring>
+#include <cmath>
+#include <cstdlib>
+
+using namespace std;
+
 //acado library
 #include <acado_toolkit.hpp>
 #include <acado_gnuplot.hpp>
@@ -30,7 +43,7 @@
 //define usual param
 #define PI 3.1415926
 #define G 9.8
-#define T 0.02//this param need to change 
+#define T 0.01//this param need to change 
 
 USING_NAMESPACE_ACADO
 DMatrix r(6,6);
@@ -172,7 +185,7 @@ public:
     Eigen::Matrix3f pos_s2;
     Eigen::Matrix3f pos_s3;
     //define rotation matrix 
-    Eigen::Matrix3f r_mat;//main_euler_angle rotation mat
+    Eigen::Matrix3f r_mat;       //main_euler_angle rotation mat
     Eigen::Matrix3f r_mat_d;     //nominal_euler_angle rotation mat
 
     //distributor param list
@@ -207,6 +220,8 @@ public:
     IntermediateState pos[3];
     IntermediateState att[3];
     IntermediateState pos_vel[3];
+    // IntermediateState pos_vel_ground[3];
+    // IntermediateState pos_vel_body[3];
     IntermediateState ang_vel[3];
     IntermediateState rotation[3][3];
     IntermediateState force[3];
@@ -353,6 +368,12 @@ public:
 
     double ref_n[ACADO_NY]; 
 
+    real_t t1,t2;
+    real_t fdbSum = 0.0;
+	real_t prepSum = 0.0;
+	int status;
+	acado_timer t;
+
     //subscriber list
     //geometry_msgs::Point
     ros::Subscriber nominal_position_sub ;      //nominal_position
@@ -395,7 +416,9 @@ public:
         geometry_msgs::Point ref_pos,
         geometry_msgs::Point ref_att,
         geometry_msgs::Point ref_vel_pos,
-        geometry_msgs::Point ref_vel_ang);
+        geometry_msgs::Point ref_vel_ang,
+        Eigen::Vector3f thrust,    //thrust vector
+        Eigen::Vector3f torque);
     //filter function 
     void fisrt_order_filter(Eigen::Vector3f in_data_thu,Eigen::Vector3f in_data_tor);
 
@@ -432,6 +455,10 @@ public:
     void psi_bias_2_sub_cb(const std_msgs::Float64::ConstPtr& msg);
     void psi_bias_3_sub_cb(const std_msgs::Float64::ConstPtr& msg);
 
+    //read data from file 
+    bool readDataFromFile(const char* fileName, vector<vector<double>>& data);
+    //get rand data
+    double getRandData(double min,double max);
 public:
     //define a init node handle function
     mpc(ros::NodeHandle* nodehandle);
