@@ -318,6 +318,17 @@ public:
     double a_tor_y; 
     double a_tor_z;
 
+
+    //the double value to store the every loop time 
+    double loop_time;
+    //time verying trajectory
+    double x_traj;
+    double y_traj;
+    double z_traj;
+    double roll_traj;
+    double pitch_traj;
+    double yaw_traj;
+
     //output list
     geometry_msgs::Point ang1;
     geometry_msgs::Point ang2;
@@ -427,7 +438,8 @@ public:
         geometry_msgs::Point ref_vel_pos,
         geometry_msgs::Point ref_vel_ang,
         Eigen::Vector3f thrust,    //thrust vector
-        Eigen::Vector3f torque);
+        Eigen::Vector3f torque,
+        double t);
     //filter function 
     void fisrt_order_filter(Eigen::Vector3f in_data_thu, Eigen::Vector3f in_data_tor);
     //measurements message data filter

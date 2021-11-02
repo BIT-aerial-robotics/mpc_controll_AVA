@@ -56,6 +56,14 @@ mpc::mpc(ros::NodeHandle* nodehandle):nh(*nodehandle)
 	//init mark with 0
 	mark.data = 0;
 	init_fun_switch = 0;
+
+	x_traj = 0;
+    y_traj = 0;
+    z_traj = 0;
+    roll_traj = 0;
+    pitch_traj= 0;
+    yaw_traj  = 0;
+
     calc_timer = nh.createTimer(ros::Duration(T), &mpc::calc_cb, this);
 }
 
@@ -279,7 +287,7 @@ void mpc::mpc_state_function()
 	f << dot(ang_roll)      == W[0][0]*ang_vel[0]+W[0][1]*ang_vel[1]+W[0][2]*ang_vel[2];//angle vel
 	f << dot(ang_pitch)     == W[1][0]*ang_vel[0]+W[1][1]*ang_vel[1]+W[1][2]*ang_vel[2];
 	f << dot(ang_yaw)       == W[2][0]*ang_vel[0]+W[2][1]*ang_vel[1]+W[2][2]*ang_vel[2];
-	
+
 	f << dot(pos_vel_x)     == acc[0];
 	f << dot(pos_vel_y)     == acc[1];
 	f << dot(pos_vel_z)     == acc[2];
@@ -553,14 +561,6 @@ void mpc::init_mpc_fun()
 	acadoVariables.yN[4] = hover_attitude.y;
 	acadoVariables.yN[5] = hover_attitude.z;
 
-	// acadoVariables.yN[6] = 0;
-	// acadoVariables.yN[7] = 0;
-	// acadoVariables.yN[8] = 0;
-	// acadoVariables.yN[9] = 0;
-	// acadoVariables.yN[10] = 0;
-	// acadoVariables.yN[11] = 0;
-
-
 	//prepare first step
 	acado_preparationStep();
 }
@@ -569,29 +569,18 @@ void mpc::init_mpc_fun()
 //the solver of mpc controller,need to be called at every loop
 void mpc::mpc_solver()
 {
-
-	// update state and reference
-	// update(
-	// 	main_position,
-	// 	main_eular_angles,
-	// 	main_velocity,
-	// 	main_body_rates,
-	// 	r_pos,
-	// 	r_att,
-	// 	r_vel_pos,
-	// 	r_vel_ang,
-	// 	thrust_u,
-	// 	torques_u);
-
 	//perform the feedback step
+	ros::Time last_request = ros::Time::now();
 	acado_tic(&t);
 	acado_feedbackStep();
 	t2 = acado_toc( &t );
+	// ROS_INFO_STREAM("time: "<<t2);
+
 	get_input();
 	get_state();
 
-	acado_printDifferentialVariables();
-	acado_printControlVariables();
+	// acado_printDifferentialVariables();
+	// acado_printControlVariables();
 
 	acado_shiftStates(2,0,0);
 	acado_shiftControls(0);
@@ -601,6 +590,9 @@ void mpc::mpc_solver()
 	acado_shiftControls(0);
 	//  for (int i = 0; i < NX; ++i)
 	// 	acadoVariables.x0[ i ] = acadoVariables.x[NX + i]+getRandData(-0.02,0.02);
+
+	// calc the loop time
+	loop_time = (ros::Time::now()- last_request).toSec();
 	update(
 		main_position,
 		main_eular_angles,
@@ -611,10 +603,8 @@ void mpc::mpc_solver()
 		r_vel_pos,
 		r_vel_ang,
 		thrust_u,
-		torques_u);
-
-
-	
+		torques_u,
+		loop_time);
 
 	acado_tic(&t);
 	acado_preparationStep();
@@ -999,7 +989,8 @@ void mpc::update(
 	geometry_msgs::Point ref_vel_pos, //reference velocity
 	geometry_msgs::Point ref_vel_ang,
 	Eigen::Vector3f thrust,    //thrust vector
-    Eigen::Vector3f torque)   //reference velocity of euler angle
+    Eigen::Vector3f torque,
+	double t)   //reference velocity of euler angle
 {
 	// global NED
 	acadoVariables.x0[0]  = main_position.x;    //init position x
@@ -1019,30 +1010,57 @@ void mpc::update(
 	acadoVariables.x0[9]  = main_body_rates.x;  //init ang_vel x
 	acadoVariables.x0[10] = main_body_rates.y;  //init ang_vel y
 	acadoVariables.x0[11] = main_body_rates.z;  //init ang_vel z
-	// for(int i=0;i<NX ; i++)
-	// {
-	// 	for (int j = 0; j < N + 1; j++)
-	// 	{
-	// 		//first row second col
-	// 		acadoVariables.x[i+j*NX]=acadoVariables.x0[i];
-	// 	}
-	// }
 
-	//initialize the control
-	// double u0[NU]; //vector of control 
-	// u0[0]=thrust[0];
-	// u0[1]=thrust[1];
-	// u0[2]=thrust[2];
-	// u0[3]=torque[0];
-	// u0[4]=torque[1];
-	// u0[5]=torque[2];
-	// for (int i = 0; i < NU; i++)
-	// {
-	// 	for (int j = 0; j < N; j++)
-	// 	{
-	// 		acadoVariables.u[i+j*NU]=u0[i];
-	// 	}
-	// }
+	//position and attitude traj setpoint
+	x_traj += 0.0*t;
+    y_traj += 0.0*t;
+    z_traj += -0.1*t;
+	if (z_traj<-1)
+	{
+		z_traj = -1;
+	}
+	
+    roll_traj += 0.0*t;
+    pitch_traj+= 0.0*t;
+    yaw_traj  += 0.0*t;
+
+
+	double ref[NY]; 
+	ref[0] = hover_position.x + x_traj;
+	ref[1] = hover_position.y + y_traj;
+	ref[2] = hover_position.z + z_traj;
+	ref[3] = hover_attitude.x + roll_traj;
+	ref[4] = hover_attitude.y + pitch_traj;
+	ref[5] = hover_attitude.z + yaw_traj;
+	ref[6] = 0;//vel_x
+	ref[7] = 0;//vel_y
+	ref[8] = 0;//vel_z
+	ref[9] = 0;//vel_roll
+	ref[10] = 0;//vel_pitch
+	ref[11] = 0;//vel_yaw
+	ref[12] = 0;//vel_x
+	ref[13] = 0;//vel_y
+	ref[14] = 0;//vel_z
+	ref[15] = 0;//vel_roll
+	ref[16] = 0;//vel_pitch
+	ref[17] = 0;//vel_yaw
+
+	for (int i = 0; i < NY; i++)
+	{
+		for (int j = 0; j < N; j++)
+		{
+			acadoVariables.y[i+j*NY]=ref[i];
+		}
+	}
+
+	//Initialize the referenceN
+	acadoVariables.yN[0] = hover_position.x+x_traj;
+	acadoVariables.yN[1] = hover_position.y+y_traj;
+	acadoVariables.yN[2] = hover_position.z+z_traj;
+	acadoVariables.yN[3] = hover_attitude.x+roll_traj;
+	acadoVariables.yN[4] = hover_attitude.y+pitch_traj;
+	acadoVariables.yN[5] = hover_attitude.z+yaw_traj;
+	
 	ROS_INFO_STREAM("reference:"<<hover_position.x<<" "<<hover_position.y<<" "<<hover_position.z
 	<<" "<<hover_attitude.x<<" "<<hover_attitude.y<<" "<<hover_attitude.z);	
 
