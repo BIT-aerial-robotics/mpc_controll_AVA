@@ -138,13 +138,13 @@ void mpc::mpc_state_function()
 	u_pos_z=100;
 	l_pos_z=-100; 
     //attitude bound
-	u_ang_x=PI/3;
+	u_ang_x= PI/3;
 	l_ang_x=-PI/3;
 
-	u_ang_y=PI/3;
+	u_ang_y= PI/3;
 	l_ang_y=-PI/3;
 	
-	u_ang_z=PI;
+	u_ang_z= PI;
 	l_ang_z=-PI;
     //velocity bound
 	u_vel_x=2;
@@ -165,23 +165,23 @@ void mpc::mpc_state_function()
 	u_ang_vel_z=0.5;
 	l_ang_vel_z=-0.5;
     //thrust and torque bound
-	u_thrust_x=5;
-	l_thrust_x=-5;
+	u_thrust_x=10;
+	l_thrust_x=-10;
 
-	u_thrust_y=5;
-	l_thrust_y=-5;
+	u_thrust_y=10;
+	l_thrust_y=-10;
 
-	u_thrust_z=65;
-	l_thrust_z=-65;
+	u_thrust_z=100;
+	l_thrust_z=-100;
 
-	u_torque_x=1;
-	l_torque_x=-1;
+	u_torque_x=10;
+	l_torque_x=-10;
 
-	u_torque_y=1;
-	l_torque_y=-1;
+	u_torque_y=10;
+	l_torque_y=-10;
 
-	u_torque_z=1;
-	l_torque_z=-1;
+	u_torque_z=10;
+	l_torque_z=-10;
 
 	//param of first-order param
 	a_thu_x=0.1; 
@@ -295,14 +295,14 @@ void mpc::mpc_state_function()
 	// h << u_torque_x;
 	// h << u_torque_y;
 	// h << u_torque_z;
-	// //acc
-	// h << acc[0];
-	// h << acc[1];
-	// h << acc[2];
-	// //ang_acc
-	// h << ang_acc[0];
-	// h << ang_acc[1];
-	// h << ang_acc[2];
+	//acc
+	h << acc[0];
+	h << acc[1];
+	h << acc[2];
+	//ang_acc
+	h << ang_acc[0];
+	h << ang_acc[1];
+	h << ang_acc[2];
 
 	//the last state function
 	hN<< pos_x;
@@ -353,14 +353,14 @@ void mpc::mpc_state_function()
 	// W(15,15) = 2;// torque y
 	// W(16,16) = 2;// torque z
 
-	// //acc
-	// W(12,12) = 0.1;
-	// W(13,13) = 0.1;
-	// W(14,14) = 0.1;
-	// //ang acc
-	// W(15,15) = 0.1;
-	// W(16,16) = 0.1;
-	// W(17,17) = 0.1;
+	//acc
+	W(12,12) = 0.1;
+	W(13,13) = 0.1;
+	W(14,14) = 0.1;
+	//ang acc
+	W(15,15) = 0.1;
+	W(16,16) = 0.1;
+	W(17,17) = 0.1;
 
 	// WN matrix 
 	WN(0,0)= 1;//pos x
@@ -507,12 +507,19 @@ void mpc::init_mpc_fun()
 	ref[3] = hover_attitude.x;
 	ref[4] = hover_attitude.y;
 	ref[5] = hover_attitude.z;
-	// ref[6] = 0;//vel_x
-	// ref[7] = 0;//vel_y
-	// ref[8] = 0;//vel_z
-	// ref[9] = 0;//vel_roll
-	// ref[10] = 0;//vel_pitch
-	// ref[11] = 0;//vel_yaw
+	ref[6] = 0;//vel_x
+	ref[7] = 0;//vel_y
+	ref[8] = 0;//vel_z
+	ref[9] = 0;//vel_roll
+	ref[10] = 0;//vel_pitch
+	ref[11] = 0;//vel_yaw
+	ref[12] = 0;//vel_x
+	ref[13] = 0;//vel_y
+	ref[14] = 0;//vel_z
+	ref[15] = 0;//vel_roll
+	ref[16] = 0;//vel_pitch
+	ref[17] = 0;//vel_yaw
+
 	for (int i = 0; i < NY; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -735,8 +742,8 @@ void mpc::main_position_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 	{
 		measurements_filter(input_msg,&main_position, 0.2,0.2,0.2);
 	}
-	ROS_INFO_STREAM("main_position: "<<main_position);
-	ROS_INFO_STREAM("input_msg: "<<input_msg);
+	// ROS_INFO_STREAM("main_position: "<<main_position);
+	// ROS_INFO_STREAM("input_msg: "<<input_msg);
 }
 
 
@@ -968,13 +975,13 @@ void mpc::update(
 	Eigen::Vector3f thrust,    //thrust vector
     Eigen::Vector3f torque)   //reference velocity of euler angle
 {
-	//global NED
+	// global NED
 	acadoVariables.x0[0]  = main_position.x;    //init position x
 	acadoVariables.x0[1]  = main_position.y;    //init position y
 	acadoVariables.x0[2]  = main_position.z;    //init position z
-	//acadoVariables.x0[2]  = -2;
+	// acadoVariables.x0[2]  = -2;
 
-	//
+	// 
 	acadoVariables.x0[3]  = main_eular_angles.x;//init ang x
 	acadoVariables.x0[4]  = main_eular_angles.y;//init ang y
 	acadoVariables.x0[5]  = main_eular_angles.z;//init ang z
