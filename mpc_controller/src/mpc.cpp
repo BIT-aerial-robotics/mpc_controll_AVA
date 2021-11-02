@@ -503,7 +503,7 @@ void mpc::init_mpc_fun()
 	double ref[NY]; 
 	ref[0] = hover_position.x;
 	ref[1] = hover_position.y;
-	ref[2] = hover_position.z;
+	ref[2] = hover_position.z-1;
 	ref[3] = hover_attitude.x;
 	ref[4] = hover_attitude.y;
 	ref[5] = hover_attitude.z;
@@ -531,7 +531,7 @@ void mpc::init_mpc_fun()
 	//Initialize the referenceN
 	acadoVariables.yN[0] = hover_position.x;
 	acadoVariables.yN[1] = hover_position.y;
-	acadoVariables.yN[2] = hover_position.z;
+	acadoVariables.yN[2] = hover_position.z-1;
 	acadoVariables.yN[3] = hover_attitude.x;
 	acadoVariables.yN[4] = hover_attitude.y;
 	acadoVariables.yN[5] = hover_attitude.z;
