@@ -229,6 +229,9 @@ public:
     IntermediateState acc[3];
     IntermediateState ang_acc[3];
 
+    //define a 3x3 matrix as the W
+    IntermediateState W[3][3];
+
     IntermediateState MtMangv[3];//Mt*ang_v
     IntermediateState mapMtMangv[3][3];//map(Mt*ang_v)
     IntermediateState mapMang_v[3];//map(Mt*ang_v)*ang_v
@@ -353,9 +356,15 @@ public:
     geometry_msgs::Point r_vel_pos;
     geometry_msgs::Point r_vel_ang;
 
-    //kaidi wang 2021.10.15: define two variables to store main_position and main_eular_angles
+    // kaidi wang 2021.10.15: define two variables to store main_position and main_eular_angles
     geometry_msgs::Point hover_position;
     geometry_msgs::Point hover_attitude;
+
+    // for filer of input messages , as a global interface
+    geometry_msgs::Point input_msg;       //get position message
+    geometry_msgs::Point vel;             //get velocity message
+    geometry_msgs::Point angles;          //get euler angle message
+    geometry_msgs::Point body_rate_input; //get body rate message
 
     //mode switch msg
     std_msgs::Bool mode_switch;
@@ -423,6 +432,8 @@ public:
     void fisrt_order_filter(Eigen::Vector3f in_data_thu, Eigen::Vector3f in_data_tor);
     //measurements message data filter
     void measurements_filter(geometry_msgs::Point input,geometry_msgs::Point* output,double a_x,double a_y,double a_z);
+    //filter of all input message
+    void all_input_filter();
 
     //the distributor of the whole thrust and troque
     void distributor(Eigen::Vector3f thu,Eigen::Vector3f tor);
@@ -436,7 +447,7 @@ public:
     void init_publisher();
     void init_subscriber();
     void output_publish(geometry_msgs::Point ang1,geometry_msgs::Point ang2,geometry_msgs::Point ang3,std_msgs::Float64 thu1,std_msgs::Float64 thu2,std_msgs::Float64 thu3);
-    
+    void composition();//useful member function list
     
     //callback function list
     void nominal_position_sub_cb(const geometry_msgs::Point::ConstPtr& msg );

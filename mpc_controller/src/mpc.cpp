@@ -224,6 +224,18 @@ void mpc::mpc_state_function()
 	rotation[2][0]=(-sin(ang_pitch));
 	rotation[2][1]=(sin(ang_roll) * cos(ang_pitch));
 	rotation[2][2]=(cos(ang_roll) * cos(ang_pitch));
+
+	//define the W matrix
+	W[0][0] = 1; 
+	W[0][1] =(tan(ang_pitch)*sin(ang_roll));
+	W[0][1] =(tan(ang_pitch)*cos(ang_roll));
+	W[1][0] = 0;
+	W[1][1] = cos(ang_roll);
+	W[1][2] =-sin(ang_roll);
+	W[2][0] = 0;
+	W[2][1] = sin(ang_roll)/cos(ang_pitch);
+	W[2][2] = cos(ang_roll)/cos(ang_pitch);
+
 	//inter param
 	MtMangv[0]=J(0,0)*ang_vel[0];
 	MtMangv[1]=J(1,1)*ang_vel[1];
@@ -260,9 +272,14 @@ void mpc::mpc_state_function()
 	f << dot(pos_x)         == pos_vel[0];
 	f << dot(pos_y)         == pos_vel[1];
 	f << dot(pos_z)         == pos_vel[2];
-	f << dot(ang_roll)      == ang_vel[0];//angle vel
-	f << dot(ang_pitch)     == ang_vel[1];
-	f << dot(ang_yaw)       == ang_vel[2];
+	//euler's dot is not the ang vel of body
+	// f << dot(ang_roll)      == ang_vel[0];//angle vel
+	// f << dot(ang_pitch)     == ang_vel[1];
+	// f << dot(ang_yaw)       == ang_vel[2];
+	f << dot(ang_roll)      == W[0][0]*ang_vel[0]+W[0][1]*ang_vel[1]+W[0][2]*ang_vel[2];//angle vel
+	f << dot(ang_pitch)     == W[1][0]*ang_vel[0]+W[1][1]*ang_vel[1]+W[1][2]*ang_vel[2];
+	f << dot(ang_yaw)       == W[2][0]*ang_vel[0]+W[2][1]*ang_vel[1]+W[2][2]*ang_vel[2];
+	
 	f << dot(pos_vel_x)     == acc[0];
 	f << dot(pos_vel_y)     == acc[1];
 	f << dot(pos_vel_z)     == acc[2];
@@ -423,7 +440,7 @@ void mpc::mpc_state_function()
 	mpc_obj.set( NUM_INTEGRATOR_STEPS, N); //mpc_obj.set( NUM_INTEGRATOR_STEPS, N * Ni);
 	mpc_obj.set( SPARSE_QP_SOLUTION, FULL_CONDENSING_N2);//mpc_obj.set( SPARSE_QP_SOLUTION, FULL_CONDENSING);
 	mpc_obj.set( HOTSTART_QP, YES);        
-	mpc_obj.set( INTEGRATOR_TYPE,INT_IRK_GL4);//mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);
+	mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);//mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);
 
 	mpc_obj.set( GENERATE_TEST_FILE, YES);
 	mpc_obj.set( GENERATE_MAKE_FILE, YES);
@@ -503,7 +520,7 @@ void mpc::init_mpc_fun()
 	double ref[NY]; 
 	ref[0] = hover_position.x;
 	ref[1] = hover_position.y;
-	ref[2] = hover_position.z-1;
+	ref[2] = hover_position.z;
 	ref[3] = hover_attitude.x;
 	ref[4] = hover_attitude.y;
 	ref[5] = hover_attitude.z;
@@ -531,7 +548,7 @@ void mpc::init_mpc_fun()
 	//Initialize the referenceN
 	acadoVariables.yN[0] = hover_position.x;
 	acadoVariables.yN[1] = hover_position.y;
-	acadoVariables.yN[2] = hover_position.z-1;
+	acadoVariables.yN[2] = hover_position.z;
 	acadoVariables.yN[3] = hover_attitude.x;
 	acadoVariables.yN[4] = hover_attitude.y;
 	acadoVariables.yN[5] = hover_attitude.z;
@@ -570,11 +587,19 @@ void mpc::mpc_solver()
 	acado_tic(&t);
 	acado_feedbackStep();
 	t2 = acado_toc( &t );
+	get_input();
+	get_state();
 
 	acado_printDifferentialVariables();
 	acado_printControlVariables();
 
-	// for (int i = 0; i < NX; ++i)
+	acado_shiftStates(2,0,0);
+	acado_shiftControls(0);
+	acado_shiftStates(2,0,0);
+	acado_shiftControls(0);
+	acado_shiftStates(2,0,0);
+	acado_shiftControls(0);
+	//  for (int i = 0; i < NX; ++i)
 	// 	acadoVariables.x0[ i ] = acadoVariables.x[NX + i]+getRandData(-0.02,0.02);
 	update(
 		main_position,
@@ -588,21 +613,8 @@ void mpc::mpc_solver()
 		thrust_u,
 		torques_u);
 
-	// acadoVariables.x0[ 0 ] = acadoVariables.x[NX + 0];//+getRandData(-0.5,0.5)
-	// acadoVariables.x0[ 1 ] = acadoVariables.x[NX + 1];
-	// acadoVariables.x0[ 2 ] = acadoVariables.x[NX + 2];
-	// acadoVariables.x0[ 3 ] = acadoVariables.x[NX + 3];
-	// acadoVariables.x0[ 4 ] = acadoVariables.x[NX + 4];
-	// acadoVariables.x0[ 5 ] = acadoVariables.x[NX + 5];
-	// acadoVariables.x0[ 6 ] = acadoVariables.x[NX + 6];
-	// acadoVariables.x0[ 7 ] = acadoVariables.x[NX + 7];
-	// acadoVariables.x0[ 8 ] = acadoVariables.x[NX + 8];
-	// acadoVariables.x0[ 9 ] = acadoVariables.x[NX + 9];
-	// acadoVariables.x0[ 10] = acadoVariables.x[NX + 10];
-	// acadoVariables.x0[ 11] = acadoVariables.x[NX + 11];
 
-	get_input();
-	get_state();
+	
 
 	acado_tic(&t);
 	acado_preparationStep();
@@ -682,6 +694,13 @@ void mpc::distributor(Eigen::Vector3f thu,Eigen::Vector3f tor)
 
 }
 
+//calc the thrust and torque reference
+void mpc::composition()
+{
+	
+	//get the thrust and toeque reference 
+
+}
 //alloc function
 Eigen::Vector4f mpc::alloc(Eigen::Vector3f f,double psi_cmd)
 {
@@ -732,16 +751,16 @@ void mpc::nominal_eular_angles_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 //position back, chk
 void mpc::main_position_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 {
-	geometry_msgs::Point input_msg;
+	// geometry_msgs::Point input_msg;
 	input_msg = *msg;
-	if (main_position.x == 0 && main_position.y ==0 && main_position.z ==0)
-	{
-		main_position = input_msg;
-	}
-	else
-	{
-		measurements_filter(input_msg,&main_position, 0.2,0.2,0.2);
-	}
+	// if (main_position.x == 0 && main_position.y ==0 && main_position.z ==0)
+	// {
+	// 	main_position = input_msg;
+	// }
+	// else
+	// {
+	// 	measurements_filter(input_msg,&main_position, 0.1,0.1,0.1);
+	// }
 	// ROS_INFO_STREAM("main_position: "<<main_position);
 	// ROS_INFO_STREAM("input_msg: "<<input_msg);
 }
@@ -750,35 +769,35 @@ void mpc::main_position_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 //velocity back, chk
 void mpc::main_velocity_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 {
-	geometry_msgs::Point vel;
+	// geometry_msgs::Point vel;
 	vel = *msg;
 	
-	Eigen::Vector3f vel_body,vel_ground;
-	vel_body(0) = vel.x;
-	vel_body(1) = vel.y;
-	vel_body(2) = vel.z;
-	//update rotation matrix
-	r_mat = euler_to_rotation_mat(main_eular_angles);
-	//trans body frame velocity to global frame velocity
-	vel_ground = r_mat*vel_body;
+	// Eigen::Vector3f vel_body,vel_ground;
+	// vel_body(0) = vel.x;
+	// vel_body(1) = vel.y;
+	// vel_body(2) = vel.z;
+	// //update rotation matrix
+	// r_mat = euler_to_rotation_mat(main_eular_angles);
+	// //trans body frame velocity to global frame velocity
+	// vel_ground = r_mat*vel_body;
 
-	//make a geometry_msgs::Point var to store the input velocity value
-	geometry_msgs::Point vel_input;
-	vel_input.x = vel_ground(0);
-	vel_input.y = vel_ground(1);
-	vel_input.z = vel_ground(2);
+	// //make a geometry_msgs::Point var to store the input velocity value
+	// geometry_msgs::Point vel_input;
+	// vel_input.x = vel_ground(0);
+	// vel_input.y = vel_ground(1);
+	// vel_input.z = vel_ground(2);
 
-	if (main_velocity.x == 0 && main_velocity.y ==0 && main_velocity.z ==0)
-	{
-		// main_velocity.x = vel_ground(0);
-		// main_velocity.y = vel_ground(1);
-		// main_velocity.z = vel_ground(2);
-		main_velocity = vel_input;
-	}
-	else
-	{
-		measurements_filter(vel_input, &main_velocity, 0.2,0.2,0.2);
-	}
+	// if (main_velocity.x == 0 && main_velocity.y ==0 && main_velocity.z ==0)
+	// {
+	// 	// main_velocity.x = vel_ground(0);
+	// 	// main_velocity.y = vel_ground(1);
+	// 	// main_velocity.z = vel_ground(2);
+	// 	main_velocity = vel_input;
+	// }
+	// else
+	// {
+	// 	measurements_filter(vel_input, &main_velocity, 0.1,0.1,0.1);
+	// }
 
 	// transform body frame to global frame 
 	// ROS_INFO_STREAM("main_velocity: "<<main_velocity);
@@ -788,20 +807,20 @@ void mpc::main_velocity_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 //attitude back, chk
 void mpc::main_eular_angles_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 {
-	geometry_msgs::Point angles;
+	// geometry_msgs::Point angles;
 	angles = *msg;
 
-	if (main_eular_angles.x == 0 && main_eular_angles.y ==0 && main_eular_angles.z ==0)
-	{
-		// main_velocity.x = vel_ground(0);
-		// main_velocity.y = vel_ground(1);
-		// main_velocity.z = vel_ground(2);
-		main_eular_angles = angles;
-	}
-	else
-	{
-		measurements_filter(angles, &main_eular_angles, 0.2,0.2,0.2);
-	}
+	// if (main_eular_angles.x == 0 && main_eular_angles.y ==0 && main_eular_angles.z ==0)
+	// {
+	// 	// main_velocity.x = vel_ground(0);
+	// 	// main_velocity.y = vel_ground(1);
+	// 	// main_velocity.z = vel_ground(2);
+	// 	main_eular_angles = angles;
+	// }
+	// else
+	// {
+	// 	measurements_filter(angles, &main_eular_angles, 0.1,0.1,0.1);
+	// }
 
 	// main_eular_angles.x = angles.x;
 	// main_eular_angles.y = angles.y;
@@ -813,21 +832,21 @@ void mpc::main_eular_angles_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 //body rates back,chk
 void mpc::main_body_rates_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 {
-	geometry_msgs::Point body_rate_input;
+	// geometry_msgs::Point body_rate_input;
 	body_rate_input = *msg;
 	// main_body_rates = *msg;
 	// if main_body_rate is zero then need to be set to body_rate_input as original
-	if (main_body_rates.x == 0 && main_body_rates.y ==0 && main_body_rates.z ==0)
-	{
-		// main_velocity.x = vel_ground(0);
-		// main_velocity.y = vel_ground(1);
-		// main_velocity.z = vel_ground(2);
-		main_body_rates = body_rate_input;
-	}
-	else
-	{
-		measurements_filter(body_rate_input, &main_body_rates, 0.2, 0.2, 0.2);
-	}
+	// if (main_body_rates.x == 0 && main_body_rates.y == 0 && main_body_rates.z == 0)
+	// {
+	// 	// main_velocity.x = vel_ground(0);
+	// 	// main_velocity.y = vel_ground(1);
+	// 	// main_velocity.z = vel_ground(2);
+	// 	main_body_rates = body_rate_input;
+	// }
+	// else
+	// {
+	// 	measurements_filter(body_rate_input, &main_body_rates, 0.1, 0.1, 0.1);
+	// }
 	// ROS_INFO_STREAM("main_body_rates: ");
 	// ROS_INFO_STREAM(main_body_rates);
 }
@@ -915,13 +934,20 @@ void mpc::get_input()
 	// in_torque[1] =std::max(l_torque_y,std::min(u_torque_y,(double)acadoVariables.u[4]));
 	// in_torque[2] =std::max(l_torque_z,std::min(u_torque_z,(double)acadoVariables.u[5]));
 	
+	// thrust_u[0] =round(acadoVariables.u[0]*1000)/1000;
+	// thrust_u[1] =round(acadoVariables.u[1]*1000)/1000;
+	// thrust_u[2] =round(acadoVariables.u[2]*1000)/1000;
+	// torques_u[0]=round(acadoVariables.u[3]*1000)/1000;
+	// torques_u[1]=round(acadoVariables.u[4]*1000)/1000;
+	// torques_u[2]=round(acadoVariables.u[5]*1000)/1000;
+	
 	thrust_u[0] =acadoVariables.u[0];
 	thrust_u[1] =acadoVariables.u[1];
 	thrust_u[2] =acadoVariables.u[2];
 	torques_u[0]=acadoVariables.u[3];
 	torques_u[1]=acadoVariables.u[4];
 	torques_u[2]=acadoVariables.u[5];
-	
+
 	ROS_INFO_STREAM("u:"<<thrust_u[0]<<" "<<thrust_u[1]<<" "<<thrust_u[2]
 	<<" "<<torques_u[0]<<" "<<torques_u[1]<<" "<<torques_u[2]);
 
@@ -1003,7 +1029,6 @@ void mpc::update(
 	// }
 
 	//initialize the control
-
 	// double u0[NU]; //vector of control 
 	// u0[0]=thrust[0];
 	// u0[1]=thrust[1];
@@ -1052,6 +1077,73 @@ void mpc::measurements_filter(
 	(*output).x = a_x*input.x+(1-a_x)*(*output).x;
 	(*output).y = a_y*input.y+(1-a_y)*(*output).y;
 	(*output).z = a_z*input.z+(1-a_z)*(*output).z;
+}
+
+// all input filter combain function
+void mpc::all_input_filter()
+{
+	//main position filter
+	if (main_position.x == 0 && main_position.y ==0 && main_position.z ==0)
+	{
+		main_position = input_msg;
+	}
+	else
+	{
+		measurements_filter(input_msg,&main_position, 0.1,0.1,0.1);
+	}
+
+	//main velocity filter
+	Eigen::Vector3f vel_body,vel_ground;
+	vel_body(0) = vel.x;
+	vel_body(1) = vel.y;
+	vel_body(2) = vel.z;
+	//update rotation matrix
+	r_mat = euler_to_rotation_mat(main_eular_angles);
+	//trans body frame velocity to global frame velocity
+	vel_ground = r_mat*vel_body;
+	//make a geometry_msgs::Point var to store the input velocity value
+	geometry_msgs::Point vel_input;
+	vel_input.x = vel_ground(0);
+	vel_input.y = vel_ground(1);
+	vel_input.z = vel_ground(2);
+	if (main_velocity.x == 0 && main_velocity.y ==0 && main_velocity.z ==0)
+	{
+		// main_velocity.x = vel_ground(0);
+		// main_velocity.y = vel_ground(1);
+		// main_velocity.z = vel_ground(2);
+		main_velocity = vel_input;
+	}
+	else
+	{
+		measurements_filter(vel_input, &main_velocity, 0.1,0.1,0.1);
+	}
+
+	//main euler angle filter
+		if (main_eular_angles.x == 0 && main_eular_angles.y ==0 && main_eular_angles.z ==0)
+	{
+		// main_velocity.x = vel_ground(0);
+		// main_velocity.y = vel_ground(1);
+		// main_velocity.z = vel_ground(2);
+		main_eular_angles = angles;
+	}
+	else
+	{
+		measurements_filter(angles, &main_eular_angles, 0.1,0.1,0.1);
+	}
+
+	//main body rate filter
+	if (main_body_rates.x == 0 && main_body_rates.y == 0 && main_body_rates.z == 0)
+	{
+		// main_velocity.x = vel_ground(0);
+		// main_velocity.y = vel_ground(1);
+		// main_velocity.z = vel_ground(2);
+		main_body_rates = body_rate_input;
+	}
+	else
+	{
+		measurements_filter(body_rate_input, &main_body_rates, 0.1, 0.1, 0.1);
+	}
+
 }
 
 //read data from a file
@@ -1130,6 +1222,9 @@ int main(int argc, char **argv)
 	mpc_node.ref_n[2]=mpc_node.hover_position.z;
 	while (ros::ok())
 	{
+		//update input message after first order filter
+		mpc_node.all_input_filter();
+
 		if(mpc_node.start_pub_att.data)//if start_pub_att == true, then start the mpc controller
 		{
 			if(mpc_node.mode_switch.data)//start mpc controller
