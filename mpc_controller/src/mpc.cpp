@@ -598,9 +598,9 @@ void mpc::mpc_solver()
 {
 	//perform the feedback step
 	ros::Time last_request = ros::Time::now();
-
-	acado_feedbackStep();
 	get_input();
+	acado_feedbackStep();
+
 	get_state();
 
 	// acado_printDifferentialVariables();
@@ -612,6 +612,7 @@ void mpc::mpc_solver()
 	acado_shiftControls(0);
 	acado_shiftStates(2,0,0);
 	acado_shiftControls(0);
+	
 	//  for (int i = 0; i < NX; ++i)
 	// 	acadoVariables.x0[ i ] = acadoVariables.x[NX + i]+getRandData(-0.02,0.02);
 
