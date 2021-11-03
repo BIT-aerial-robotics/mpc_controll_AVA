@@ -370,6 +370,8 @@ public:
     // kaidi wang 2021.10.15: define two variables to store main_position and main_eular_angles
     geometry_msgs::Point hover_position;
     geometry_msgs::Point hover_attitude;
+    geometry_msgs::Point hover_vel;
+    geometry_msgs::Point hover_body_rate;
 
     // for filer of input messages , as a global interface
     geometry_msgs::Point input_msg;       //get position message

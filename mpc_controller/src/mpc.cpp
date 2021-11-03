@@ -164,20 +164,20 @@ void mpc::mpc_state_function()
 	u_vel_z=2;
 	l_vel_z=-2;
     //ang velocity bound
-	u_ang_vel_x=0.5;
-	l_ang_vel_x=-0.5;
+	u_ang_vel_x=0.8;//0.5
+	l_ang_vel_x=-0.8;//0.5
 
-	u_ang_vel_y=0.5;
-	l_ang_vel_y=-0.5;
+	u_ang_vel_y=0.8;//0.5
+	l_ang_vel_y=-0.8;//0.5
 	
-	u_ang_vel_z=0.5;
-	l_ang_vel_z=-0.5;
+	u_ang_vel_z=0.8;//0.5
+	l_ang_vel_z=-0.8;//0.5
     //thrust and torque bound
-	u_thrust_x=10;
-	l_thrust_x=-10;
+	u_thrust_x=30;//10
+	l_thrust_x=-30;//10
 
-	u_thrust_y=10;
-	l_thrust_y=-10;
+	u_thrust_y=30;//10
+	l_thrust_y=-30;//10
 
 	u_thrust_z=100;
 	l_thrust_z=-100;
@@ -313,13 +313,6 @@ void mpc::mpc_state_function()
 	h << ang_vel_pitch;
 	h << ang_vel_yaw;
 
-	// //u thrust x,y
-	// h << u_thu_x;
-	// h << u_thu_y;
-	// //u torque x,y,z
-	// h << u_torque_x;
-	// h << u_torque_y;
-	// h << u_torque_z;
 	//acc
 	h << acc[0];
 	h << acc[1];
@@ -330,12 +323,12 @@ void mpc::mpc_state_function()
 	h << ang_acc[2];
 
 	//kaidi wang, 11.03, add thrust and torque reference to cost function
-	h << u_thu_x;
-	h << u_thu_y;
-	h << u_thu_z;
-	h << u_tor_x;
-	h << u_tor_y;
-	h << u_tor_z;
+	// h << u_thu_x;
+	// h << u_thu_y;
+	// h << u_thu_z;
+	// h << u_tor_x;
+	// h << u_tor_y;
+	// h << u_tor_z;
 
 	//the last state function
 	hN<< pos_x;
@@ -344,12 +337,20 @@ void mpc::mpc_state_function()
 	hN<< ang_roll;
 	hN<< ang_pitch;
 	hN<< ang_yaw;
-	// hN<< pos_vel_x;
-	// hN<< pos_vel_y;
-	// hN<< pos_vel_z;
-	// hN<< ang_vel_roll;
-	// hN<< ang_vel_pitch;
-	// hN<< ang_vel_yaw;
+
+	hN<< pos_vel_x;// hN with x_vel
+	hN<< pos_vel_y;// hN with y_vel
+	hN<< pos_vel_z;// hN with z_vel
+	hN<< ang_vel_roll;// hN with roll_vel
+	hN<< ang_vel_pitch;// hN with pitch vel
+	hN<< ang_vel_yaw;// hN with yaw vel
+
+	// hN<< acc[0];
+	// hN<< acc[1];
+	// hN<< acc[2];
+	// hN<< ang_acc[0];
+	// hN<< ang_acc[1];
+	// hN<< ang_acc[2];
 
 	// const int N  = 10;
 	// const int Ni = 4;
@@ -370,13 +371,13 @@ void mpc::mpc_state_function()
 	W(4,4) =100;
 	W(5,5) =100;
 	//pos vel
-	W(6,6) = 1;
-	W(7,7) = 1;
-	W(8,8) = 1;
+	W(6,6) = 1;//1
+	W(7,7) = 1;//1
+	W(8,8) = 1;//1
 	//ang vel
-	W(9,9)   = 1;
-	W(10,10) = 1;
-	W(11,11) = 1;
+	W(9,9)   = 1;//1
+	W(10,10) = 1;//1
+	W(11,11) = 1;//1
 	//acc
 	W(12,12) = 0.1;
 	W(13,13) = 0.1;
@@ -386,12 +387,12 @@ void mpc::mpc_state_function()
 	W(16,16) = 0.1;
 	W(17,17) = 0.1;
 	// kaidi add 2021.11.03, the weigth value of thrust ref and torque ref
-	W(18,18) = 10;//thrust x
-	W(19,19) = 10;//thrust y
-	W(20,20) = 10;//thrust z
-	W(21,21) = 10;//torque x
-	W(22,22) = 10;//torque y
-	W(23,23) = 10;//torque z
+	// W(18,18) = 10;//thrust x
+	// W(19,19) = 10;//thrust y
+	// W(20,20) = 10;//thrust z
+	// W(21,21) = 10;//torque x
+	// W(22,22) = 10;//torque y
+	// W(23,23) = 10;//torque z
 
 	// WN matrix 
 	WN(0,0)= 1;//pos x
@@ -401,13 +402,19 @@ void mpc::mpc_state_function()
 	WN(4,4)= 1;//ang y
 	WN(5,5)= 1;//ang z
 
-	// WN(6,6)= 10;//vel x
-	// WN(7,7)= 10;//vel y
-	// WN(8,8)= 30;//vel z
-	// WN(9,9)= 2;  //ang vel x
-	// WN(10,10)= 2;//ang vel y
-	// WN(11,11)= 2;//ang vel z
+	WN(6,6)= 1;  //vel x
+	WN(7,7)= 1;  //vel y
+	WN(8,8)= 1;  //vel z
+	WN(9,9)= 1;  //ang vel x
+	WN(10,10)= 1;//ang vel y
+	WN(11,11)= 1;//ang vel z
 
+	// WN(12,12)= 1;//acc x
+	// WN(13,13)= 1;//acc y
+	// WN(14,14)= 1;//acc z
+	// WN(15,15)= 1;//acc roll
+	// WN(16,16)= 1;//acc pitch
+	// WN(17,17)= 1;//acc yaw
 
 	// WN *=10;
 	// Q(15,15) = 1;
@@ -454,7 +461,7 @@ void mpc::mpc_state_function()
 	mpc_obj.set( NUM_INTEGRATOR_STEPS, N); //mpc_obj.set( NUM_INTEGRATOR_STEPS, N * Ni);
 	mpc_obj.set( SPARSE_QP_SOLUTION, FULL_CONDENSING_N2);//mpc_obj.set( SPARSE_QP_SOLUTION, FULL_CONDENSING);
 	mpc_obj.set( HOTSTART_QP, YES);        
-	mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);//mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);
+	mpc_obj.set( INTEGRATOR_TYPE,INT_RK23);//mpc_obj.set( INTEGRATOR_TYPE,INT_RK45);
 
 	mpc_obj.set( GENERATE_TEST_FILE, YES);
 	mpc_obj.set( GENERATE_MAKE_FILE, YES);
@@ -518,7 +525,7 @@ void mpc::init_mpc_fun()
 	double u0[NU]; //vector of control 
 	u0[0]=0;
 	u0[1]=0;
-	u0[2]=-62.35;
+	u0[2]=-param.S3Q_mass*G;
 	u0[3]=0;
 	u0[4]=0;
 	u0[5]=0;
@@ -544,6 +551,7 @@ void mpc::init_mpc_fun()
 	ref[9] = 0;//vel_roll
 	ref[10] = 0;//vel_pitch
 	ref[11] = 0;//vel_yaw
+	
 	ref[12] = 0;//acc_x
 	ref[13] = 0;//acc_y
 	ref[14] = 0;//acc_z
@@ -551,12 +559,12 @@ void mpc::init_mpc_fun()
 	ref[16] = 0;//acc_pitch
 	ref[17] = 0;//acc_yaw
 
-	ref[18] = 0;//thrust x ref
-	ref[19] = 0;//thrust y ref
-	ref[20] = -param.S3Q_mass*G;//thrust z ref
-	ref[21] = 0;//torque x ref
-	ref[22] = 0;//torque y ref
-	ref[23] = 0;//torque z ref
+	// ref[18] = 0;//thrust x ref
+	// ref[19] = 0;//thrust y ref
+	// ref[20] = -param.S3Q_mass*G;//thrust z ref
+	// ref[21] = 0;//torque x ref
+	// ref[22] = 0;//torque y ref
+	// ref[23] = 0;//torque z ref
 
 	for (int i = 0; i < NY; i++)
 	{
@@ -573,6 +581,12 @@ void mpc::init_mpc_fun()
 	acadoVariables.yN[3] = hover_attitude.x;
 	acadoVariables.yN[4] = hover_attitude.y;
 	acadoVariables.yN[5] = hover_attitude.z;
+	acadoVariables.yN[6] = 0;
+	acadoVariables.yN[7] = 0;
+	acadoVariables.yN[8] = 0;
+	acadoVariables.yN[9] = 0;
+	acadoVariables.yN[10] = 0;
+	acadoVariables.yN[11] = 0;
 
 	//prepare first step
 	acado_preparationStep();
@@ -1068,12 +1082,12 @@ void mpc::update(
 	ref[16] = 0;//acc_pitch
 	ref[17] = 0;//acc_yaw
 
-	ref[18] = 0;//acc_x
-	ref[19] = 0;//acc_y
-	ref[20] = -param.S3Q_mass*G;//acc_z
-	ref[21] = 0;//acc_roll
-	ref[22] = 0;//acc_pitch
-	ref[23] = 0;//acc_yaw
+	// ref[18] = 0;//acc_x
+	// ref[19] = 0;//acc_y
+	// ref[20] = -param.S3Q_mass*G;//acc_z
+	// ref[21] = 0;//acc_roll
+	// ref[22] = 0;//acc_pitch
+	// ref[23] = 0;//acc_yaw
 	
 	for (int i = 0; i < NY; i++)
 	{
@@ -1091,6 +1105,19 @@ void mpc::update(
 	acadoVariables.yN[4] = hover_attitude.y+pitch_traj;
 	acadoVariables.yN[5] = hover_attitude.z+yaw_traj;
 
+	acadoVariables.yN[6] = 0;// x vel 
+	acadoVariables.yN[7] = 0;// y vel 
+	acadoVariables.yN[8] = 0;// z vel 
+	acadoVariables.yN[9] = 0;// roll vel 
+	acadoVariables.yN[10] = 0;// pitch vel
+	acadoVariables.yN[11] = 0;// yaw vel
+
+	// acadoVariables.yN[12] = 0;// x acc
+	// acadoVariables.yN[13] = 0;// y acc
+	// acadoVariables.yN[14] = 0;// z acc
+	// acadoVariables.yN[15] = 0;// roll acc
+	// acadoVariables.yN[16] = 0;// pitch acc
+	// acadoVariables.yN[17] = 0;// yaw acc
 	ROS_INFO_STREAM("reference:"<<hover_position.x<<" "<<hover_position.y<<" "<<hover_position.z
 	<<" "<<hover_attitude.x<<" "<<hover_attitude.y<<" "<<hover_attitude.z);	
 
@@ -1260,6 +1287,12 @@ void mpc::calc_cb(const ros::TimerEvent&)
 			hover_attitude.x = main_eular_angles.x;
 			hover_attitude.y = main_eular_angles.y;
 			hover_attitude.z = main_eular_angles.z;
+			hover_vel.x = main_velocity.x;
+			hover_vel.y = main_velocity.y;
+			hover_vel.z = main_velocity.z;
+    		hover_body_rate.x = main_body_rates.x;
+			hover_body_rate.y = main_body_rates.y;
+			hover_body_rate.z = main_body_rates.z;
 			// ROS_INFO_STREAM(hover_position.x);
 			// ROS_INFO_STREAM(hover_position.y);
 			// ROS_INFO_STREAM(hover_position.z);
