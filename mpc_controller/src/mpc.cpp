@@ -598,23 +598,20 @@ void mpc::mpc_solver()
 {
 	//perform the feedback step
 	ros::Time last_request = ros::Time::now();
-	acado_tic(&t);
-	acado_feedbackStep();
-	t2 = acado_toc( &t );
-	// ROS_INFO_STREAM("time: "<<t2);
 
+	acado_feedbackStep();
 	get_input();
 	get_state();
 
 	// acado_printDifferentialVariables();
 	// acado_printControlVariables();
 
-	// acado_shiftStates(2,0,0);
-	// acado_shiftControls(0);
-	// acado_shiftStates(2,0,0);
-	// acado_shiftControls(0);
-	// acado_shiftStates(2,0,0);
-	// acado_shiftControls(0);
+	acado_shiftStates(2,0,0);
+	acado_shiftControls(0);
+	acado_shiftStates(2,0,0);
+	acado_shiftControls(0);
+	acado_shiftStates(2,0,0);
+	acado_shiftControls(0);
 	//  for (int i = 0; i < NX; ++i)
 	// 	acadoVariables.x0[ i ] = acadoVariables.x[NX + i]+getRandData(-0.02,0.02);
 
@@ -633,12 +630,8 @@ void mpc::mpc_solver()
 		torques_u,
 		loop_time);
 
-	acado_tic(&t);
 	acado_preparationStep();
-	t1 = acado_toc( &t );
 
-	prepSum += t1;
-	fdbSum  += t2;
 }
 
 
@@ -951,12 +944,12 @@ void mpc::get_input()
 	// in_torque[1] =std::max(l_torque_y,std::min(u_torque_y,(double)acadoVariables.u[4]));
 	// in_torque[2] =std::max(l_torque_z,std::min(u_torque_z,(double)acadoVariables.u[5]));
 	
-	// thrust_u[0] =round(acadoVariables.u[0]*1000)/1000;
-	// thrust_u[1] =round(acadoVariables.u[1]*1000)/1000;
-	// thrust_u[2] =round(acadoVariables.u[2]*1000)/1000;
-	// torques_u[0]=round(acadoVariables.u[3]*1000)/1000;
-	// torques_u[1]=round(acadoVariables.u[4]*1000)/1000;
-	// torques_u[2]=round(acadoVariables.u[5]*1000)/1000;
+	// thrust_u[0] =round(acadoVariables.u[0]*100)/100;
+	// thrust_u[1] =round(acadoVariables.u[1]*100)/100;
+	// thrust_u[2] =round(acadoVariables.u[2]*100)/100;
+	// torques_u[0]=round(acadoVariables.u[3]*100)/100;
+	// torques_u[1]=round(acadoVariables.u[4]*100)/100;
+	// torques_u[2]=round(acadoVariables.u[5]*100)/100;
 	
 	thrust_u[0] =acadoVariables.u[0];
 	thrust_u[1] =acadoVariables.u[1];
@@ -1194,7 +1187,7 @@ void mpc::all_input_filter()
 	}
 
 	//main euler angle filter
-		if (main_eular_angles.x == 0 && main_eular_angles.y ==0 && main_eular_angles.z ==0)
+	if (main_eular_angles.x == 0 && main_eular_angles.y ==0 && main_eular_angles.z ==0)
 	{
 		// main_velocity.x = vel_ground(0);
 		// main_velocity.y = vel_ground(1);
