@@ -446,6 +446,14 @@ public:
     void measurements_filter(geometry_msgs::Point input,geometry_msgs::Point* output,double a_x,double a_y,double a_z);
     //filter of all input message
     void all_input_filter();
+    //input setpoint filter function define
+
+    //kaidi wang 11.03, calc thrust and torque reference
+    void get_thu_tor_ref(
+        geometry_msgs::Point pos_ref, 
+        geometry_msgs::Point ang_ref, 
+        geometry_msgs::Point vel_ref, 
+        geometry_msgs::Point body_rate_ref);
 
     //the distributor of the whole thrust and troque
     void distributor(Eigen::Vector3f thu,Eigen::Vector3f tor);

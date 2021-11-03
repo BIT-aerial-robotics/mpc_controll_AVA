@@ -235,8 +235,8 @@ void mpc::mpc_state_function()
 
 	//define the W matrix
 	W[0][0] = 1; 
-	W[0][1] =(tan(ang_pitch)*sin(ang_roll));
-	W[0][1] =(tan(ang_pitch)*cos(ang_roll));
+	W[0][1] = (tan(ang_pitch)*sin(ang_roll));
+	W[0][1] = (tan(ang_pitch)*cos(ang_roll));
 	W[1][0] = 0;
 	W[1][1] = cos(ang_roll);
 	W[1][2] =-sin(ang_roll);
@@ -329,6 +329,14 @@ void mpc::mpc_state_function()
 	h << ang_acc[1];
 	h << ang_acc[2];
 
+	//kaidi wang, 11.03, add thrust and torque reference to cost function
+	h << u_thu_x;
+	h << u_thu_y;
+	h << u_thu_z;
+	h << u_tor_x;
+	h << u_tor_y;
+	h << u_tor_z;
+
 	//the last state function
 	hN<< pos_x;
 	hN<< pos_y;
@@ -369,15 +377,6 @@ void mpc::mpc_state_function()
 	W(9,9)   = 1;
 	W(10,10) = 1;
 	W(11,11) = 1;
-
-	// //thrust
-	// W(12,12) = 2;// thrust x
-	// W(13,13) = 2;// thrust y
-	// //torque
-	// W(14,14) = 2;// torque x
-	// W(15,15) = 2;// torque y
-	// W(16,16) = 2;// torque z
-
 	//acc
 	W(12,12) = 0.1;
 	W(13,13) = 0.1;
@@ -386,6 +385,13 @@ void mpc::mpc_state_function()
 	W(15,15) = 0.1;
 	W(16,16) = 0.1;
 	W(17,17) = 0.1;
+	// kaidi add 2021.11.03, the weigth value of thrust ref and torque ref
+	W(18,18) = 10;//thrust x
+	W(19,19) = 10;//thrust y
+	W(20,20) = 10;//thrust z
+	W(21,21) = 10;//torque x
+	W(22,22) = 10;//torque y
+	W(23,23) = 10;//torque z
 
 	// WN matrix 
 	WN(0,0)= 1;//pos x
@@ -538,12 +544,19 @@ void mpc::init_mpc_fun()
 	ref[9] = 0;//vel_roll
 	ref[10] = 0;//vel_pitch
 	ref[11] = 0;//vel_yaw
-	ref[12] = 0;//vel_x
-	ref[13] = 0;//vel_y
-	ref[14] = 0;//vel_z
-	ref[15] = 0;//vel_roll
-	ref[16] = 0;//vel_pitch
-	ref[17] = 0;//vel_yaw
+	ref[12] = 0;//acc_x
+	ref[13] = 0;//acc_y
+	ref[14] = 0;//acc_z
+	ref[15] = 0;//acc_roll
+	ref[16] = 0;//acc_pitch
+	ref[17] = 0;//acc_yaw
+
+	ref[18] = 0;//thrust x ref
+	ref[19] = 0;//thrust y ref
+	ref[20] = -param.S3Q_mass*G;//thrust z ref
+	ref[21] = 0;//torque x ref
+	ref[22] = 0;//torque y ref
+	ref[23] = 0;//torque z ref
 
 	for (int i = 0; i < NY; i++)
 	{
@@ -582,12 +595,12 @@ void mpc::mpc_solver()
 	// acado_printDifferentialVariables();
 	// acado_printControlVariables();
 
-	acado_shiftStates(2,0,0);
-	acado_shiftControls(0);
-	acado_shiftStates(2,0,0);
-	acado_shiftControls(0);
-	acado_shiftStates(2,0,0);
-	acado_shiftControls(0);
+	// acado_shiftStates(2,0,0);
+	// acado_shiftControls(0);
+	// acado_shiftStates(2,0,0);
+	// acado_shiftControls(0);
+	// acado_shiftStates(2,0,0);
+	// acado_shiftControls(0);
 	//  for (int i = 0; i < NX; ++i)
 	// 	acadoVariables.x0[ i ] = acadoVariables.x[NX + i]+getRandData(-0.02,0.02);
 
@@ -1013,8 +1026,18 @@ void mpc::update(
 
 	//position and attitude traj setpoint
 	x_traj += 0.0*t;
+	if(x_traj>1)
+	{
+		x_traj =1;
+	}
+
     y_traj += 0.0*t;
-    z_traj += -0.1*t;
+	if(y_traj>1)
+	{
+		y_traj =1;
+	}
+
+    z_traj += -0.0*t;
 	if (z_traj<-1)
 	{
 		z_traj = -1;
@@ -1038,13 +1061,20 @@ void mpc::update(
 	ref[9] = 0;//vel_roll
 	ref[10] = 0;//vel_pitch
 	ref[11] = 0;//vel_yaw
-	ref[12] = 0;//vel_x
-	ref[13] = 0;//vel_y
-	ref[14] = 0;//vel_z
-	ref[15] = 0;//vel_roll
-	ref[16] = 0;//vel_pitch
-	ref[17] = 0;//vel_yaw
+	ref[12] = 0;//acc_x
+	ref[13] = 0;//acc_y
+	ref[14] = 0;//acc_z
+	ref[15] = 0;//acc_roll
+	ref[16] = 0;//acc_pitch
+	ref[17] = 0;//acc_yaw
 
+	ref[18] = 0;//acc_x
+	ref[19] = 0;//acc_y
+	ref[20] = -param.S3Q_mass*G;//acc_z
+	ref[21] = 0;//acc_roll
+	ref[22] = 0;//acc_pitch
+	ref[23] = 0;//acc_yaw
+	
 	for (int i = 0; i < NY; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -1060,7 +1090,7 @@ void mpc::update(
 	acadoVariables.yN[3] = hover_attitude.x+roll_traj;
 	acadoVariables.yN[4] = hover_attitude.y+pitch_traj;
 	acadoVariables.yN[5] = hover_attitude.z+yaw_traj;
-	
+
 	ROS_INFO_STREAM("reference:"<<hover_position.x<<" "<<hover_position.y<<" "<<hover_position.z
 	<<" "<<hover_attitude.x<<" "<<hover_attitude.y<<" "<<hover_attitude.z);	
 
@@ -1161,6 +1191,17 @@ void mpc::all_input_filter()
 	{
 		measurements_filter(body_rate_input, &main_body_rates, 0.1, 0.1, 0.1);
 	}
+
+}
+
+
+//kaidi wang 11.03, add a funciton of get thrust and torque reference value
+void mpc::get_thu_tor_ref(
+	geometry_msgs::Point pos_ref, 
+	geometry_msgs::Point ang_ref, 
+	geometry_msgs::Point vel_ref, 
+	geometry_msgs::Point body_rate_ref)
+{
 
 }
 
