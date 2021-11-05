@@ -1050,7 +1050,7 @@ void mpc::update(
 		y_traj =1;
 	}
 
-    z_traj += -0.0*t;
+    z_traj += -0.1*t;
 	if (z_traj<-1)
 	{
 		z_traj = -1;
@@ -1070,7 +1070,7 @@ void mpc::update(
 	ref[5] = hover_attitude.z + yaw_traj;
 	ref[6] = 0;//vel_x
 	ref[7] = 0;//vel_y
-	ref[8] = 0;//vel_z
+	ref[8] = -0.1;//vel_z
 	ref[9] = 0;//vel_roll
 	ref[10] = 0;//vel_pitch
 	ref[11] = 0;//vel_yaw
@@ -1106,7 +1106,7 @@ void mpc::update(
 
 	acadoVariables.yN[6] = 0;// x vel 
 	acadoVariables.yN[7] = 0;// y vel 
-	acadoVariables.yN[8] = 0;// z vel 
+	acadoVariables.yN[8] = -0.1;// z vel 
 	acadoVariables.yN[9] = 0;// roll vel 
 	acadoVariables.yN[10] = 0;// pitch vel
 	acadoVariables.yN[11] = 0;// yaw vel
