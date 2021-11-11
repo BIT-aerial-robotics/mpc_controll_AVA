@@ -322,13 +322,13 @@ void mpc::mpc_state_function()
 	h << ang_acc[1];
 	h << ang_acc[2];
 
-	//kaidi wang, 11.03, add thrust and torque reference to cost function
-	// h << u_thu_x;
-	// h << u_thu_y;
-	// h << u_thu_z;
-	// h << u_tor_x;
-	// h << u_tor_y;
-	// h << u_tor_z;
+	// kaidi wang, 11.03, add thrust and torque reference to cost function
+	h << u_thu_x;
+	h << u_thu_y;
+	h << u_thu_z;
+	h << u_tor_x;
+	h << u_tor_y;
+	h << u_tor_z;
 
 	//the last state function
 	hN<< pos_x;
@@ -356,8 +356,8 @@ void mpc::mpc_state_function()
 	// const int Ni = 4;
 	// const double Ts = 0.01;
 	const double t_start = 0.0;
-	const double t_end = 2;
-	const double dt = 0.1;
+	const double t_end = 1;
+	const double dt = 0.05;
 	const int N = round((t_end-t_start)/dt);
 	//init weight as a identity matrix
 	DMatrix W = eye<double>(h.getDim());
@@ -387,12 +387,12 @@ void mpc::mpc_state_function()
 	W(16,16) = 1;
 	W(17,17) = 1;
 	// kaidi add 2021.11.03, the weigth value of thrust ref and torque ref
-	// W(18,18) = 10;//thrust x
-	// W(19,19) = 10;//thrust y
-	// W(20,20) = 10;//thrust z
-	// W(21,21) = 10;//torque x
-	// W(22,22) = 10;//torque y
-	// W(23,23) = 10;//torque z
+	W(18,18) = 15;//thrust x
+	W(19,19) = 15;//thrust y
+	W(20,20) = 15;//thrust z
+	W(21,21) = 15;//torque x
+	W(22,22) = 15;//torque y
+	W(23,23) = 15;//torque z
 
 	// WN matrix 
 	WN(0,0)= 5;//pos x
@@ -559,12 +559,12 @@ void mpc::init_mpc_fun()
 	ref[16] = 0;//acc_pitch
 	ref[17] = 0;//acc_yaw
 
-	// ref[18] = 0;//thrust x ref
-	// ref[19] = 0;//thrust y ref
-	// ref[20] = -param.S3Q_mass*G;//thrust z ref
-	// ref[21] = 0;//torque x ref
-	// ref[22] = 0;//torque y ref
-	// ref[23] = 0;//torque z ref
+	ref[18] = 0;//thrust x ref
+	ref[19] = 0;//thrust y ref
+	ref[20] = -param.S3Q_mass*G;//thrust z ref
+	ref[21] = 0;//torque x ref
+	ref[22] = 0;//torque y ref
+	ref[23] = 0;//torque z ref
 
 	for (int i = 0; i < NY; i++)
 	{
@@ -605,7 +605,6 @@ void mpc::mpc_solver()
 
 	// acado_printDifferentialVariables();
 	// acado_printControlVariables();
-
 	// acado_shiftStates(2,0,0);
 	// acado_shiftControls(0);
 	// acado_shiftStates(2,0,0);
@@ -1050,7 +1049,7 @@ void mpc::update(
 		y_traj =1;
 	}
 
-    z_traj += -0.1*t;
+    z_traj += -0.0*t;
 	if (z_traj<-1)
 	{
 		z_traj = -1;
@@ -1070,7 +1069,7 @@ void mpc::update(
 	ref[5] = hover_attitude.z + yaw_traj;
 	ref[6] = 0;//vel_x
 	ref[7] = 0;//vel_y
-	ref[8] = -0.1;//vel_z
+	ref[8] = 0;//vel_z
 	ref[9] = 0;//vel_roll
 	ref[10] = 0;//vel_pitch
 	ref[11] = 0;//vel_yaw
@@ -1081,12 +1080,12 @@ void mpc::update(
 	ref[16] = 0;//acc_pitch
 	ref[17] = 0;//acc_yaw
 
-	// ref[18] = 0;//acc_x
-	// ref[19] = 0;//acc_y
-	// ref[20] = -param.S3Q_mass*G;//acc_z
-	// ref[21] = 0;//acc_roll
-	// ref[22] = 0;//acc_pitch
-	// ref[23] = 0;//acc_yaw
+	ref[18] = 0;//acc_x
+	ref[19] = 0;//acc_y
+	ref[20] = -param.S3Q_mass*G;//acc_z
+	ref[21] = 0;//acc_roll
+	ref[22] = 0;//acc_pitch
+	ref[23] = 0;//acc_yaw
 	
 	for (int i = 0; i < NY; i++)
 	{
@@ -1320,8 +1319,8 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     mpc mpc_node(&nh);
 
-	ros::Rate rate(100.0);//100 hz
-	mpc_node.ref_n[2]=mpc_node.hover_position.z;
+	ros::Rate rate(50.0);//100 hz
+	// mpc_node.ref_n[2]=mpc_node.hover_position.z;
 	while (ros::ok())
 	{
 		//update input message after first order filter
