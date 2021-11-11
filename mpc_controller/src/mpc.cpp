@@ -601,8 +601,7 @@ void mpc::mpc_solver()
 	
 	acado_feedbackStep();
 	get_state();
-	get_input();
-
+			
 	// acado_printDifferentialVariables();
 	// acado_printControlVariables();
 	// acado_shiftStates(2,0,0);
@@ -634,6 +633,10 @@ void mpc::mpc_solver()
 		thrust_u,
 		torques_u,
 		loop_time);
+	
+	// shift control 
+	acado_shiftControls( 0 );
+	get_input();
 
 	acado_preparationStep();
 
