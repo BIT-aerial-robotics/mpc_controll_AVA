@@ -469,7 +469,7 @@ public:
     void init_publisher();
     void init_subscriber();
     void output_publish(geometry_msgs::Point ang1,geometry_msgs::Point ang2,geometry_msgs::Point ang3,std_msgs::Float64 thu1,std_msgs::Float64 thu2,std_msgs::Float64 thu3);
-    void composition();//useful member function list
+    void calc_ref_u();//useful member function list
     
     //callback function list
     void nominal_position_sub_cb(const geometry_msgs::Point::ConstPtr& msg );
