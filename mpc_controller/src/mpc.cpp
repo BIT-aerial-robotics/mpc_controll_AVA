@@ -108,6 +108,13 @@ void mpc::init_subscriber()
 	init_velocity_cmd_sub = nh.subscribe<geometry_msgs::Point>
 	("/init_velocity_cmd",1,&mpc::init_velocity_cmd_sub_cb,this);
 
+	angle1_sub = nh.subscribe<geometry_msgs::Point>("/angle1",2,&mpc::ang1_sub_cb,this);
+	angle2_sub = nh.subscribe<geometry_msgs::Point>("/angle2",2,&mpc::ang2_sub_cb,this);
+	angle3_sub = nh.subscribe<geometry_msgs::Point>("/angle3",2,&mpc::ang3_sub_cb,this);
+	thrust1_sub = nh.subscribe<std_msgs::Float64>("/thrust1",2,&mpc::thu1_sub_cb,this);
+	thrust2_sub = nh.subscribe<std_msgs::Float64>("/thrust2",2,&mpc::thu2_sub_cb,this);
+	thrust3_sub = nh.subscribe<std_msgs::Float64>("/thrust3",2,&mpc::thu3_sub_cb,this);
+
 	control_start_sub_att = nh.subscribe<std_msgs::Bool>
 	("/start_pub_att",1,&mpc::control_start_sub_att_cb,this);
 	//kaidi wang, 2021.10.13, mode_switch_sub define
@@ -289,7 +296,6 @@ void mpc::mpc_state_function()
 	f << dot(ang_roll)      == W[0][0]*ang_vel[0]+W[0][1]*ang_vel[1]+W[0][2]*ang_vel[2];//angle vel
 	f << dot(ang_pitch)     == W[1][0]*ang_vel[0]+W[1][1]*ang_vel[1]+W[1][2]*ang_vel[2];
 	f << dot(ang_yaw)       == W[2][0]*ang_vel[0]+W[2][1]*ang_vel[1]+W[2][2]*ang_vel[2];
-
 	f << dot(pos_vel_x)     == acc[0];
 	f << dot(pos_vel_y)     == acc[1];
 	f << dot(pos_vel_z)     == acc[2];
@@ -528,12 +534,18 @@ void mpc::init_mpc_fun()
 
 	//initialize the control 
 	double u0[NU]; //vector of control 
-	u0[0]=0;
-	u0[1]=0;
-	u0[2]=-param.S3Q_mass*G;
-	u0[3]=0;
-	u0[4]=0;
-	u0[5]=0;
+	// u0[0]=0;
+	// u0[1]=0;
+	// u0[2]=-param.S3Q_mass*G;
+	// u0[3]=0;
+	// u0[4]=0;
+	// u0[5]=0;
+	u0[0]=thrust_u_init(0);
+	u0[1]=thrust_u_init(1);
+	u0[2]=thrust_u_init(2);
+	u0[3]=torques_u_init(0);
+	u0[4]=torques_u_init(1);
+	u0[5]=torques_u_init(2);
 	for (int i = 0; i < NU; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -645,9 +657,7 @@ void mpc::mpc_solver()
 	get_input();
 
 	acado_preparationStep();
-
 }
-
 
 //the distributor of the whole thrust and torque
 void mpc::distributor(Eigen::Vector3f thu,Eigen::Vector3f tor)
@@ -715,6 +725,83 @@ void mpc::distributor(Eigen::Vector3f thu,Eigen::Vector3f tor)
 	ang3.y    = thu_att3(2);
 	ang3.z    = thu_att3(3);
 	//I need to check the 
+
+}
+
+//calc the old controller's last thrust and torque
+void mpc::composition(
+	geometry_msgs::Point ang1,
+	geometry_msgs::Point ang2,
+	geometry_msgs::Point ang3,
+	std_msgs::Float64 thu1,
+	std_msgs::Float64 thu2,
+	std_msgs::Float64 thu3)
+{
+	//calc attitude rotation
+    Eigen::Matrix3f r_mat0, rt_mat0, rmat1,rmat2,rmat3;//main_euler_angle rotation mat
+    r_mat0 = euler_to_rotation_mat(main_eular_angles);
+    rt_mat0 = r_mat0.inverse();//inverse function of rotation matrix
+	//calc child vehicle rotation 
+    rmat1 = euler_to_rotation_mat(ang1);
+    rmat2 = euler_to_rotation_mat(ang2);
+    rmat3 = euler_to_rotation_mat(ang3);
+    //get vector of thrust1~3
+    Eigen::Vector3f vec_thu1,vec_thu2,vec_thu3;
+    vec_thu1(0)=vec_thu1(1)=0;
+    vec_thu1(2)=-thu1.data;
+
+    vec_thu2(0)=vec_thu2(1)=0;
+    vec_thu2(2)=-thu2.data;
+
+    vec_thu3(0)=vec_thu3(1)=0;
+    vec_thu3(2)=-thu3.data;
+	//
+    Eigen::Vector3f fw1,fw2,fw3,f01,f02,f03;
+    fw1 = rmat1*vec_thu1;
+    f01 = rt_mat0*fw1;
+
+    fw2 = rmat2*vec_thu2;
+    f02 = rt_mat0*fw2;
+
+    fw3 = rmat3*vec_thu3;
+    f03 = rt_mat0*fw3;
+
+	//define identity matrix3f
+    Eigen::Matrix3f I;
+	I(0,0)=I(1,1)=I(2,2)=1;
+	I(0,1)=I(0,2)=I(1,0)=I(1,2)=I(2,0)=I(2,1)=0;
+    //define position s1~3
+	pos_s1=pos_mat(param.fly1_pos.x,param.fly1_pos.y,param.fly1_pos.z);
+	pos_s2=pos_mat(param.fly2_pos.x,param.fly2_pos.y,param.fly2_pos.z);
+	pos_s3=pos_mat(param.fly3_pos.x,param.fly3_pos.y,param.fly3_pos.z);
+    //define B matrix
+    Eigen::MatrixXf B(6, 9);
+	B.block<3,3>(0,0)=I;
+	B.block<3,3>(0,3)=I;
+	B.block<3,3>(0,6)=I;
+	B.block<3,3>(3,0)=pos_s1;
+	B.block<3,3>(3,3)=pos_s2;
+	B.block<3,3>(3,6)=pos_s3;
+    //make an vector(9)
+    Eigen::MatrixXf f0123(9, 1);
+    f0123.block<3,1>(0,0)=f01;
+	f0123.block<3,1>(3,0)=f02;
+	f0123.block<3,1>(6,0)=f03;
+    //define a 6x1 vector U
+    Eigen::MatrixXf U(6, 1);
+    U = B*f0123;
+	//get thrust and torques
+	thrust_u_init(0) = U(0);
+    thrust_u_init(1) = U(1);
+    thrust_u_init(2) = U(2);
+    torques_u_init(0) = U(3);
+    torques_u_init(1) = U(4);
+    torques_u_init(2) = U(5);
+
+	//display thrust_u_init and torque_u_init 
+	//use a dynamical model of the process to predictits future evolution and choose the best control action
+	ROS_INFO_STREAM("thrust_u_init:" <<thrust_u_init(0)<<" "<<thrust_u_init(1)<<" "<<thrust_u_init(2));
+	ROS_INFO_STREAM("torques_u_init:"<<torques_u_init(0)<<" "<<torques_u_init(1)<<" "<<torques_u_init(2));
 
 }
 
@@ -902,6 +989,61 @@ void mpc::init_velocity_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
 	// ROS_INFO_STREAM(init_velocity);
 }
 
+//ang1 value callback function
+void mpc::ang1_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
+{
+	if(init_fun_switch==0)
+	{
+		ang1 = *msg;	
+	}
+
+}
+
+//ang2 value callback function
+void mpc::ang2_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
+{
+	if(init_fun_switch==0)
+	{
+		ang2 = *msg;
+	}
+}
+
+//ang3 value callback function
+void mpc::ang3_sub_cb(const geometry_msgs::Point::ConstPtr& msg)
+{
+	if(init_fun_switch==0)
+	{
+		ang3 = *msg;
+	}
+}
+
+//thu1 value callback function
+void mpc::thu1_sub_cb(const std_msgs::Float64::ConstPtr& msg)
+{
+	if(init_fun_switch==0)
+	{
+		thu1 = *msg;
+	}
+}
+
+//thu2 value callback function
+void mpc::thu2_sub_cb(const std_msgs::Float64::ConstPtr& msg)
+{
+	if(init_fun_switch==0)
+	{
+		thu2 = *msg;
+	}
+}
+
+//thu3 value callback function
+void mpc::thu3_sub_cb(const std_msgs::Float64::ConstPtr& msg)
+{
+	if(init_fun_switch==0)
+	{
+		thu3 = *msg;
+	}
+}
+
 //mode switch callback function
 void mpc::mode_switch_sub_cb(const std_msgs::Bool::ConstPtr& msg)
 {
@@ -970,8 +1112,8 @@ void mpc::get_input()
 	torques_u[1]=acadoVariables.u[4];
 	torques_u[2]=acadoVariables.u[5];
 
-	ROS_INFO_STREAM("u:"<<thrust_u[0]<<" "<<thrust_u[1]<<" "<<thrust_u[2]
-	<<" "<<torques_u[0]<<" "<<torques_u[1]<<" "<<torques_u[2]);
+	// ROS_INFO_STREAM("u:"<<thrust_u[0]<<" "<<thrust_u[1]<<" "<<thrust_u[2]
+	// <<" "<<torques_u[0]<<" "<<torques_u[1]<<" "<<torques_u[2]);
 
 	distributor(thrust_u,torques_u);
 	output_publish(ang1,ang2,ang3,thu1,thu2,thu3);
@@ -1000,11 +1142,11 @@ void mpc::get_state()
 		states_var[i] = acadoVariables.x0[i];
 	}
 	//print states value
-	ROS_INFO_STREAM("states:"<<states_var[0]<<" "<<states_var[1]<<" "<<states_var[2]
-	<<" "<<states_var[3]<<" "<<states_var[4]<<" "<<states_var[5]
-	<<" "<<states_var[6]<<" "<<states_var[7]<<" "<<states_var[8]
-	<<" "<<states_var[9]<<" "<<states_var[10]<<" "<<states_var[11]
-	);
+	// ROS_INFO_STREAM("states:"<<states_var[0]<<" "<<states_var[1]<<" "<<states_var[2]
+	// <<" "<<states_var[3]<<" "<<states_var[4]<<" "<<states_var[5]
+	// <<" "<<states_var[6]<<" "<<states_var[7]<<" "<<states_var[8]
+	// <<" "<<states_var[9]<<" "<<states_var[10]<<" "<<states_var[11]
+	// );
 }
 
 //refresh the state and reference value
@@ -1115,8 +1257,8 @@ void mpc::update(
 	acadoVariables.yN[11] = 0;// yaw vel
 
 
-	ROS_INFO_STREAM("reference:"<<acadoVariables.yN[0]<<" "<<acadoVariables.yN[1]<<" "<<acadoVariables.yN[2]
-	<<" "<<acadoVariables.yN[3]<<" "<<acadoVariables.yN[4]<<" "<<acadoVariables.yN[5]);	
+	// ROS_INFO_STREAM("reference:"<<acadoVariables.yN[0]<<" "<<acadoVariables.yN[1]<<" "<<acadoVariables.yN[2]
+	// <<" "<<acadoVariables.yN[3]<<" "<<acadoVariables.yN[4]<<" "<<acadoVariables.yN[5]);	
 
 	//update thrust and torque
 	// double u0[NU]; //vector of control 
@@ -1269,7 +1411,6 @@ bool mpc::readDataFromFile(const char* fileName, vector<vector<double>>& data)
 	}
 	else	
 		return false;
-	
 	return true;
 }
 
@@ -1336,6 +1477,10 @@ int main(int argc, char **argv)
 			{
 				if(mpc_node.init_fun_switch==0)//init judge 
 				{
+					//get the lastest thrust 1~3 and ang 1~3
+					ros::spinOnce();
+					mpc_node.composition(mpc_node.ang1,mpc_node.ang2,mpc_node.ang3,mpc_node.thu1,mpc_node.thu2,mpc_node.thu3);
+					
 					ROS_INFO_STREAM("you only look once..");
 					mpc_node.init_mpc_fun();//init mpc at the first time
 				}
@@ -1348,7 +1493,7 @@ int main(int argc, char **argv)
 
 				// debug code section
 				mpc_node.count_num_test++;
-				ROS_INFO_STREAM("times:"<<mpc_node.count_num_test);
+				// ROS_INFO_STREAM("times:"<<mpc_node.count_num_test);
 				if(mpc_node.count_num_test>10)
 				{
 					// ros::shutdown();// close the ros node

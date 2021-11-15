@@ -136,9 +136,9 @@ controller_base::controller_base(/* args */)
     tool_pos.z = 0;
 
     //mass param
-    fly1_mass = 1.597;
-    fly2_mass = 1.604;
-    fly3_mass = 1.583;
+    fly1_mass   = 1.597;
+    fly2_mass   = 1.604;
+    fly3_mass   = 1.583;
     center_mass = 1.607;
 
     //I center param
@@ -336,6 +336,11 @@ public:
     std_msgs::Float64 thu1;
     std_msgs::Float64 thu2;
     std_msgs::Float64 thu3;
+
+    //thrust init value and torque init value
+    Eigen::Vector3f thrust_u_init;     //thrust vector
+    Eigen::Vector3f torques_u_init;    //torque vector
+
     //output mark value
     std_msgs::Float64 mark;
 
@@ -408,6 +413,13 @@ public:
     ros::Subscriber init_pos_cmd_sub ;	        //init cmd publish: position
     ros::Subscriber init_body_rates_cmd_sub ;	//init cmd publish: body_rates
     ros::Subscriber init_velocity_cmd_sub ;	    //init cmd publish: velocity
+    //thrust and angle1~3 value from the old controller publisher
+    ros::Subscriber angle1_sub;
+    ros::Subscriber angle2_sub;
+    ros::Subscriber angle3_sub;
+    ros::Subscriber thrust1_sub;
+    ros::Subscriber thrust2_sub;
+    ros::Subscriber thrust3_sub;
 
     //std_msgs::Bool
     ros::Subscriber control_start_sub_att ;	    //control switch of when publish attitude to child node, besides control when start the controller  
@@ -459,6 +471,15 @@ public:
 
     //the distributor of the whole thrust and troque
     void distributor(Eigen::Vector3f thu,Eigen::Vector3f tor);
+    // composition function , output thrust and torque
+    void composition(
+        geometry_msgs::Point ang1,
+        geometry_msgs::Point ang2,
+        geometry_msgs::Point ang3,
+        std_msgs::Float64 thu1,
+        std_msgs::Float64 thu2,
+        std_msgs::Float64 thu3);
+
     //alloc function
     Eigen::Vector4f alloc(Eigen::Vector3f f,double psi_cmd);
 
@@ -482,6 +503,14 @@ public:
     void init_pos_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
     void init_body_rates_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
     void init_velocity_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
+
+    //thrust 1~3 and angle 1~3 from the last old controller node
+    void ang1_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
+    void ang2_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
+    void ang3_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
+    void thu1_sub_cb(const std_msgs::Float64::ConstPtr& msg);
+    void thu2_sub_cb(const std_msgs::Float64::ConstPtr& msg);
+    void thu3_sub_cb(const std_msgs::Float64::ConstPtr& msg);
 
     void control_start_sub_att_cb(const std_msgs::Bool::ConstPtr& msg);
     void mode_switch_sub_cb(const std_msgs::Bool::ConstPtr& msg);
