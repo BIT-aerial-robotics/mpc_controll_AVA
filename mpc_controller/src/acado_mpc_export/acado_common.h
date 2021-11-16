@@ -160,29 +160,11 @@ real_t evGx[ 2880 ];
 /** Matrix of size: 240 x 6 (row major format) */
 real_t evGu[ 1440 ];
 
-/** Column vector of size: 226 */
-real_t objAuxVar[ 226 ];
-
 /** Row vector of size: 18 */
 real_t objValueIn[ 18 ];
 
-/** Row vector of size: 342 */
-real_t objValueOut[ 342 ];
-
-/** Matrix of size: 240 x 12 (row major format) */
-real_t Q1[ 2880 ];
-
-/** Matrix of size: 240 x 18 (row major format) */
-real_t Q2[ 4320 ];
-
-/** Matrix of size: 120 x 6 (row major format) */
-real_t R1[ 720 ];
-
-/** Matrix of size: 120 x 18 (row major format) */
-real_t R2[ 2160 ];
-
-/** Matrix of size: 240 x 6 (row major format) */
-real_t S1[ 1440 ];
+/** Row vector of size: 18 */
+real_t objValueOut[ 18 ];
 
 /** Column vector of size: 252 */
 real_t sbar[ 252 ];

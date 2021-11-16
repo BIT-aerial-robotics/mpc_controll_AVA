@@ -41,9 +41,12 @@ using namespace std;
 
 
 //define usual param
-#define PI 3.1415926
-#define G 9.8
-#define T 0.01//this param need to change 
+#define PI 3.1415926     //pi value
+#define G 9.8            //gravity acc param
+#define T 0.01           //this param need to change 
+#define POS_MODE 0       //only reference position input
+#define VEL_MODE 1       //only reference velocity input
+#define POS_VEL_MODE 2   //both reference position and velocity input
 
 USING_NAMESPACE_ACADO
 DMatrix r(6,6);
@@ -307,8 +310,6 @@ public:
     double l_torque_y;
     double u_torque_z;
     double l_torque_z;
-    //Controller controller;
-    StaticReferenceTrajectory reference;
 
     //param of first-order filter
     double a_thu_x; 
@@ -317,7 +318,6 @@ public:
     double a_tor_x; 
     double a_tor_y; 
     double a_tor_z;
-
 
     //the double value to store the every loop time 
     double loop_time;
@@ -371,6 +371,20 @@ public:
     geometry_msgs::Point r_att;
     geometry_msgs::Point r_vel_pos;
     geometry_msgs::Point r_vel_ang;
+    //position 
+    double xd_now   =0, xd_last=0, vd_x=0;
+    double yd_now   =0, yd_last=0, vd_y=0;
+    double zd_now   =0, zd_last=0, vd_z=0;
+    double rolld_now =0,rolld_last =0,rolld_rate =0;
+    double pitchd_now=0,pitchd_last=0,pitchd_rate=0;
+    double yawd_now  =0,yawd_last  =0,yawd_rate  =0;
+    //velocity
+    double v_xd_now = 0, v_xd_last=0, accd_x=0;
+    double v_yd_now = 0, v_yd_last=0, accd_y=0;
+    double v_zd_now = 0, v_zd_last=0, accd_z=0;
+    double v_rolld_now  = 0, v_rolld_last =0, accd_roll =0;
+    double v_pitchd_now = 0, v_pitchd_last=0, accd_pitch=0;
+    double v_yawd_now   = 0, v_yawd_last  =0, accd_yaw  =0;
 
     // kaidi wang 2021.10.15: define two variables to store main_position and main_eular_angles
     geometry_msgs::Point hover_position;
@@ -396,7 +410,7 @@ public:
     double ref_n[ACADO_NY]; 
 
     real_t t1,t2;
-    real_t fdbSum = 0.0;
+    real_t fdbSum  = 0.0;
 	real_t prepSum = 0.0;
 	int status;
 	acado_timer t;
@@ -424,7 +438,6 @@ public:
     //std_msgs::Bool
     ros::Subscriber control_start_sub_att ;	    //control switch of when publish attitude to child node, besides control when start the controller  
     ros::Subscriber mode_switch_sub;
-    
     //subscribe the bias of psi angle that each child flight needed
     //std_msgs::Float64
     ros::Subscriber psi_bias_1_sub;
@@ -461,14 +474,22 @@ public:
     //filter of all input message
     void all_input_filter();
     //input setpoint filter function define
-
     //kaidi wang 11.03, calc thrust and torque reference
-    void get_thu_tor_ref(
+    Eigen::VectorXf get_thu_tor_ref(
         geometry_msgs::Point pos_ref, 
         geometry_msgs::Point ang_ref, 
         geometry_msgs::Point vel_ref, 
-        geometry_msgs::Point body_rate_ref);
-
+        geometry_msgs::Point body_rate_ref,
+        double loop_time,
+        int mode);
+    //calc the control reference from the dynamic model
+    Eigen::VectorXf dynamic_model(Eigen::VectorXf acc_vec, Eigen::VectorXf vec);
+    //kaidi wang 11.15, differentiator 
+    void differentiator_lastest(double *last,double *now,double *re,double h);
+    //calc velocity vector from the pos ref and ang ref
+    Eigen::VectorXf diff_from_position(geometry_msgs::Point pos_r,geometry_msgs::Point ang_r,double time);
+    //calc acceleration vector from the vel ref and anguler vel ref
+    Eigen::VectorXf diff_from_velocity(Eigen::VectorXf l_vel,Eigen::VectorXf e_rate,double time);
     //the distributor of the whole thrust and troque
     void distributor(Eigen::Vector3f thu,Eigen::Vector3f tor);
     // composition function , output thrust and torque
@@ -503,7 +524,6 @@ public:
     void init_pos_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
     void init_body_rates_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
     void init_velocity_cmd_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
-
     //thrust 1~3 and angle 1~3 from the last old controller node
     void ang1_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
     void ang2_sub_cb(const geometry_msgs::Point::ConstPtr& msg);
@@ -511,10 +531,8 @@ public:
     void thu1_sub_cb(const std_msgs::Float64::ConstPtr& msg);
     void thu2_sub_cb(const std_msgs::Float64::ConstPtr& msg);
     void thu3_sub_cb(const std_msgs::Float64::ConstPtr& msg);
-
     void control_start_sub_att_cb(const std_msgs::Bool::ConstPtr& msg);
     void mode_switch_sub_cb(const std_msgs::Bool::ConstPtr& msg);
-
     void psi_bias_1_sub_cb(const std_msgs::Float64::ConstPtr& msg);
     void psi_bias_2_sub_cb(const std_msgs::Float64::ConstPtr& msg);
     void psi_bias_3_sub_cb(const std_msgs::Float64::ConstPtr& msg);
