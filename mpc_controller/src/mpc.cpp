@@ -370,20 +370,13 @@ void mpc::mpc_state_function()
 	W(10,10) = 20;//1
 	W(11,11) = 50;//1
 	//thrust_u weight
-	W(12,12) = 15;
-	W(13,13) = 15;
-	W(14,14) = 15;
+	W(12,12) = 5;
+	W(13,13) = 5;
+	W(14,14) = 5;
 	//torque_u weight
-	W(15,15) = 15;
-	W(16,16) = 15;
-	W(17,17) = 15;
-	// kaidi add 2021.11.03, the weigth value of thrust ref and torque ref
-	// W(18,18) = 15;//thrust x
-	// W(19,19) = 15;//thrust y
-	// W(20,20) = 15;//thrust z
-	// W(21,21) = 15;//torque x
-	// W(22,22) = 15;//torque y
-	// W(23,23) = 15;//torque z
+	W(15,15) = 5;
+	W(16,16) = 5;
+	W(17,17) = 5;
 
 	// WN matrix 
 	WN(0,0)= 5;//pos x
@@ -395,8 +388,8 @@ void mpc::mpc_state_function()
 
 	WN(6,6) = 10;  //vel x
 	WN(7,7) = 10;  //vel y
-	WN(8,8) = 1 ;   //vel z
-	WN(9,9) = 20;  //ang vel x
+	WN(8,8) = 1;   //vel z
+	WN(9,9) =  20;  //ang vel x
 	WN(10,10)= 20;//ang vel y
 	WN(11,11)= 50;//ang vel z
 
