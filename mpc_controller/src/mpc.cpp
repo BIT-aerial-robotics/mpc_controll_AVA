@@ -62,7 +62,6 @@ mpc::mpc(ros::NodeHandle* nodehandle):nh(*nodehandle)
     roll_traj = 0;
     pitch_traj= 0;
     yaw_traj  = 0;
-
     calc_timer = nh.createTimer(ros::Duration(T), &mpc::calc_cb, this);
 }
 
@@ -362,9 +361,9 @@ void mpc::mpc_state_function()
 	W(4,4) = 2;//100
 	W(5,5) = 5;//100
 	//pos vel
-	W(6,6) = 10;//1
-	W(7,7) = 10;//1
-	W(8,8) = 10;//1
+	W(6,6) = 15;//1
+	W(7,7) = 15;//1
+	W(8,8) = 15;//1
 	//ang vel
 	W(9,9)   = 20;//1
 	W(10,10) = 20;//1
