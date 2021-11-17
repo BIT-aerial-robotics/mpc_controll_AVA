@@ -161,29 +161,29 @@ void mpc::mpc_state_function()
 	u_ang_z= PI;
 	l_ang_z=-PI;
     //velocity bound
-	u_vel_x= 2;
-	l_vel_x=-2;
+	u_vel_x= 5;
+	l_vel_x=-5;
 
-	u_vel_y= 2;
-	l_vel_y=-2;
+	u_vel_y= 5;
+	l_vel_y=-5;
 
-	u_vel_z= 2;
-	l_vel_z=-2;
+	u_vel_z= 5;
+	l_vel_z=-5;
     //ang velocity bound
-	u_ang_vel_x= 1;//0.5 0.8
-	l_ang_vel_x=-1;//0.5 0.8 
+	u_ang_vel_x= 3;//0.5 0.8
+	l_ang_vel_x=-3;//0.5 0.8 
 
-	u_ang_vel_y= 1;//0.5 0.8 
-	l_ang_vel_y=-1;//0.5 0.8
+	u_ang_vel_y= 3;//0.5 0.8 
+	l_ang_vel_y=-3;//0.5 0.8
 	
-	u_ang_vel_z= 1;//0.5 0.8
-	l_ang_vel_z=-1;//0.5 0.8
+	u_ang_vel_z= 3;//0.5 0.8
+	l_ang_vel_z=-3;//0.5 0.8
     //thrust and torque bound
-	u_thrust_x= 30;//10 30 
-	l_thrust_x=-30;//10 30 
+	u_thrust_x= 50;//10 30 
+	l_thrust_x=-50;//10 30 
 
-	u_thrust_y= 30;//10 30 
-	l_thrust_y=-30;//10 30 
+	u_thrust_y= 50;//10 30 
+	l_thrust_y=-50;//10 30 
 
 	u_thrust_z= 100;
 	l_thrust_z=-100;
@@ -1490,7 +1490,7 @@ int main(int argc, char **argv)
 	{
 		//update input message after first order filter
 		mpc_node.all_input_filter();
-		//first of all, init slover and then run the solver function
+		//first of all, init slover and then run the solver
 		if(mpc_node.start_pub_att.data)//if start_pub_att == true, then start the mpc controller
 		{
 			if(mpc_node.mode_switch.data)//start mpc controller
