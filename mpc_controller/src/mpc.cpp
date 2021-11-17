@@ -271,8 +271,8 @@ void mpc::mpc_state_function()
 	//calc the acc vector
 	acc[0]=(1/param.S3Q_mass)*(rotation[0][0]*force[0]+rotation[0][1]*force[1]+rotation[0][2]*force[2]);
 	acc[1]=(1/param.S3Q_mass)*(rotation[1][0]*force[0]+rotation[1][1]*force[1]+rotation[1][2]*force[2]);
-	// acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2])+G;
-	acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2]);
+	acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2])+G;
+	// acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2]);
 
 	//calc the ang acc vector 
 	ang_acc[0]=(J.inverse())(0,0)*(tao[0]+mapMang_v[0])+(J.inverse())(0,1)*(tao[1]+mapMang_v[1])+(J.inverse())(0,2)*(tao[2]+mapMang_v[2]);
@@ -361,12 +361,12 @@ void mpc::mpc_state_function()
 	W(4,4) = 2;//100
 	W(5,5) = 5;//100
 	//pos vel
-	W(6,6) = 15;//1
-	W(7,7) = 15;//1
-	W(8,8) = 15;//1
+	W(6,6) = 60;//1
+	W(7,7) = 60;//1
+	W(8,8) = 50;//1
 	//ang vel
-	W(9,9)   = 20;//1
-	W(10,10) = 20;//1
+	W(9,9)   = 50;//1
+	W(10,10) = 50;//1
 	W(11,11) = 50;//1
 	//thrust_u weight
 	W(12,12) = 3;
@@ -385,11 +385,11 @@ void mpc::mpc_state_function()
 	WN(4,4)= 2;//ang y
 	WN(5,5)= 5;//ang z
 
-	WN(6,6) = 10;  //vel x
-	WN(7,7) = 10;  //vel y
-	WN(8,8) = 1;   //vel z
-	WN(9,9) =  20;  //ang vel x
-	WN(10,10)= 20;//ang vel y
+	WN(6,6) = 60;  //vel x
+	WN(7,7) = 60;  //vel y
+	WN(8,8) = 50;   //vel z
+	WN(9,9) =  50;  //ang vel x
+	WN(10,10)= 50;//ang vel y
 	WN(11,11)= 50;//ang vel z
 
 	OCP ocp(t_start,t_end,N);//what is this line mean
