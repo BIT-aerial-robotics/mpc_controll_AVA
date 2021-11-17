@@ -370,9 +370,9 @@ void mpc::mpc_state_function()
 	W(10,10) = 20;//1
 	W(11,11) = 50;//1
 	//thrust_u weight
-	W(12,12) = 5;
-	W(13,13) = 5;
-	W(14,14) = 5;
+	W(12,12) = 3;
+	W(13,13) = 3;
+	W(14,14) = 3;
 	//torque_u weight
 	W(15,15) = 5;
 	W(16,16) = 5;
@@ -384,7 +384,7 @@ void mpc::mpc_state_function()
 	WN(2,2)= 5;//pos z
 	WN(3,3)= 2;//ang x
 	WN(4,4)= 2;//ang y
-	WN(5,5)= 2;//ang z
+	WN(5,5)= 5;//ang z
 
 	WN(6,6) = 10;  //vel x
 	WN(7,7) = 10;  //vel y
@@ -392,16 +392,6 @@ void mpc::mpc_state_function()
 	WN(9,9) =  20;  //ang vel x
 	WN(10,10)= 20;//ang vel y
 	WN(11,11)= 50;//ang vel z
-
-	// WN(12,12)= 1;//acc x
-	// WN(13,13)= 1;//acc y
-	// WN(14,14)= 1;//acc z
-	// WN(15,15)= 1;//acc roll
-	// WN(16,16)= 1;//acc pitch
-	// WN(17,17)= 1;//acc yaw
-
-	// ROS_INFO_STREAM("Q:"<<W);
-	// ROS_INFO_STREAM("Qn:"<<WN);
 
 	OCP ocp(t_start,t_end,N);//what is this line mean
 	ocp.minimizeLSQ(W,h);
@@ -576,15 +566,13 @@ void mpc::mpc_solver()
 	Eigen::VectorXf u_reference(6);
 	Eigen::Vector3f ud_thrust, ud_torque;
 	//perform the feedback step
-	ros::Time last_request = ros::Time::now();
 	
 	acado_feedbackStep();
 	get_state();
 			
 	// acado_printDifferentialVariables();
 	// acado_printControlVariables();
-	// calc the loop time
-	loop_time = (ros::Time::now()- last_request).toSec();
+
 	// get the u_reference value
 	u_reference = get_thu_tor_ref(
 		hover_position,
@@ -613,11 +601,11 @@ void mpc::mpc_solver()
 		r_vel_ang,
 		ud_thrust,
 		ud_torque,
-		loop_time);
+		0.02);
 	
 	// shift control 
 	acado_shiftControls( 0 );
-	get_input();
+	// get_input();
 	acado_preparationStep();
 }
 
@@ -973,13 +961,7 @@ void mpc::get_input()
 	// in_torque[0] =std::max(l_torque_x,std::min(u_torque_x,(double)acadoVariables.u[3]));
 	// in_torque[1] =std::max(l_torque_y,std::min(u_torque_y,(double)acadoVariables.u[4]));
 	// in_torque[2] =std::max(l_torque_z,std::min(u_torque_z,(double)acadoVariables.u[5]));
-	// thrust_u[0] =round(acadoVariables.u[0]*100)/100;
-	// thrust_u[1] =round(acadoVariables.u[1]*100)/100;
-	// thrust_u[2] =round(acadoVariables.u[2]*100)/100;
-	// torques_u[0]=round(acadoVariables.u[3]*100)/100;
-	// torques_u[1]=round(acadoVariables.u[4]*100)/100;
-	// torques_u[2]=round(acadoVariables.u[5]*100)/100;
-	
+
 	thrust_u[0] =acadoVariables.u[0];
 	thrust_u[1] =acadoVariables.u[1];
 	thrust_u[2] =acadoVariables.u[2];
@@ -1099,13 +1081,6 @@ void mpc::update(
 	ref[15] = torque_ref(0);//0;//torque x ref
 	ref[16] = torque_ref(1);//0;//torque y ref
 	ref[17] = torque_ref(2);//0;//torque z ref
-
-	// ref[18] = 0;//acc_x
-	// ref[19] = 0;//acc_y
-	// ref[20] = -param.S3Q_mass*G;//acc_z
-	// ref[21] = 0;//acc_roll
-	// ref[22] = 0;//acc_pitch
-	// ref[23] = 0;//acc_yaw
 	
 	for (int i = 0; i < NY; i++)
 	{
@@ -1476,7 +1451,6 @@ void mpc::calc_cb(const ros::TimerEvent&)
 		{
 			// output_publish(ang1,ang2,ang3,thu1,thu2,thu3);
 			// distributor(thrust_u,torques_u);
-			// output_publish(ang1,ang2,ang3,thu1,thu2,thu3);
 		}
 		else
 		{	
@@ -1512,12 +1486,11 @@ int main(int argc, char **argv)
     mpc mpc_node(&nh);
 
 	ros::Rate rate(50.0);//100 hz
-	// mpc_node.ref_n[2]=mpc_node.hover_position.z;
 	while (ros::ok())
 	{
 		//update input message after first order filter
 		mpc_node.all_input_filter();
-
+		//first of all, init slover and then run the solver function
 		if(mpc_node.start_pub_att.data)//if start_pub_att == true, then start the mpc controller
 		{
 			if(mpc_node.mode_switch.data)//start mpc controller
@@ -1538,14 +1511,7 @@ int main(int argc, char **argv)
 				//run the solver function
 				mpc_node.mpc_solver();
 
-				//test line to show the reference of control_d
-				// mpc_node.get_thu_tor_ref(
-				// 	mpc_node.hover_position,
-				// 	mpc_node.hover_attitude,
-				// 	mpc_node.hover_vel,
-				// 	mpc_node.hover_body_rate,
-				// 	0.02,
-				// 	POS_MODE);
+				mpc_node.get_input();
 				
 				// debug code section
 				mpc_node.count_num_test++;
@@ -1562,8 +1528,8 @@ int main(int argc, char **argv)
 				mpc_node.mpc_mark_pub.publish(mpc_node.mark);
 			}
 		}
-		ros::spinOnce();
 		rate.sleep();
+		ros::spinOnce();
 	}
     return 0;
 }
