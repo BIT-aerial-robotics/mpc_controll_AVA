@@ -326,7 +326,7 @@ void mpc::mpc_state_function()
 	// kaidi wang, 11.03, add thrust and torque reference to cost function
 	h << u_thu_x; //thrust x ref
 	h << u_thu_y; //thrust y ref
-	h << u_thu_z; //thrust z ref
+	h << u_thu_z; //thrust z ref//+param.S3Q_mass*G
 	h << u_tor_x; //torque x ref
 	h << u_tor_y; //torque y ref
 	h << u_tor_z; //torque z ref 
@@ -353,21 +353,21 @@ void mpc::mpc_state_function()
 	DMatrix W = eye<double>(h.getDim());
 	DMatrix WN = eye<double>(hN.getDim());
 	//position
-	W(0,0) = 5;//100
-	W(1,1) = 5;//100
-	W(2,2) = 5;//100
+	W(0,0) = 10;//100
+	W(1,1) = 10;//100
+	W(2,2) = 15;//100
 	//angle
 	W(3,3) = 2;//100
 	W(4,4) = 2;//100
 	W(5,5) = 5;//100
 	//pos vel
-	W(6,6) = 60;//1
-	W(7,7) = 60;//1
-	W(8,8) = 50;//1
+	W(6,6) = 6;//1
+	W(7,7) = 6;//1
+	W(8,8) = 5;//1
 	//ang vel
-	W(9,9)   = 50;//1
-	W(10,10) = 50;//1
-	W(11,11) = 50;//1
+	W(9,9)   = 5;//1
+	W(10,10) = 5;//1
+	W(11,11) = 5;//1
 	//thrust_u weight
 	W(12,12) = 3;
 	W(13,13) = 3;
@@ -378,19 +378,19 @@ void mpc::mpc_state_function()
 	W(17,17) = 5;
 
 	// WN matrix 
-	WN(0,0)= 5;//pos x
-	WN(1,1)= 5;//pos y
-	WN(2,2)= 5;//pos z
+	WN(0,0)= 10;//pos x
+	WN(1,1)= 10;//pos y
+	WN(2,2)= 15;//pos z
 	WN(3,3)= 2;//ang x
 	WN(4,4)= 2;//ang y
 	WN(5,5)= 5;//ang z
 
-	WN(6,6) = 60;  //vel x
-	WN(7,7) = 60;  //vel y
-	WN(8,8) = 50;   //vel z
-	WN(9,9) =  50;  //ang vel x
-	WN(10,10)= 50;//ang vel y
-	WN(11,11)= 50;//ang vel z
+	WN(6,6) = 6;  //vel x
+	WN(7,7) = 6;  //vel y
+	WN(8,8) = 5;   //vel z
+	WN(9,9) =  5;  //ang vel x
+	WN(10,10)= 5;//ang vel y
+	WN(11,11)= 5;//ang vel z
 
 	OCP ocp(t_start,t_end,N);//what is this line mean
 	ocp.minimizeLSQ(W,h);
@@ -1081,6 +1081,10 @@ void mpc::update(
 	ref[16] = torque_ref(1);//0;//torque y ref
 	ref[17] = torque_ref(2);//0;//torque z ref
 	
+	ROS_INFO_STREAM(
+		"u_ref"<<ref[12]<<" "<<ref[13]<<" "<<ref[14]<<" "<<ref[15]<<" "<<ref[16]<<" "<<ref[17]
+		);
+
 	for (int i = 0; i < NY; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -1248,7 +1252,7 @@ Eigen::VectorXf mpc::get_thu_tor_ref(
 			angle_rate(2) = vel_d(5);
 			acc_d = diff_from_velocity(linear_vel,angle_rate,loop_time);
 			u_ref = dynamic_model(acc_d,vel_d);
-			ROS_INFO_STREAM("u_ref"<<u_ref);
+			// ROS_INFO_STREAM("u_ref"<<u_ref);
 			break;
 		case 1:// only velocity input
 			

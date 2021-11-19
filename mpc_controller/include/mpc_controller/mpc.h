@@ -139,9 +139,9 @@ controller_base::controller_base(/* args */)
     tool_pos.z = 0;
 
     //mass param
-    fly1_mass   = 1.597;
-    fly2_mass   = 1.604;
-    fly3_mass   = 1.583;
+    fly1_mass   = 1.949;//1.597;//
+    fly2_mass   = 1.967;//1.604;//
+    fly3_mass   = 1.940;//1.583;//
     center_mass = 1.607;
 
     //I center param
