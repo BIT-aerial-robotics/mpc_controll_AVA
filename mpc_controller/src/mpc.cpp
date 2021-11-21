@@ -353,15 +353,15 @@ void mpc::mpc_state_function()
 	DMatrix W = eye<double>(h.getDim());
 	DMatrix WN = eye<double>(hN.getDim());
 	//position
-	W(0,0) = 10;//100
-	W(1,1) = 10;//100
-	W(2,2) = 15;//100
+	W(0,0) = 18;//100 12
+	W(1,1) = 12;//100 12
+	W(2,2) = 18;//100
 	//angle
-	W(3,3) = 2;//100
-	W(4,4) = 2;//100
+	W(3,3) = 5;//100
+	W(4,4) = 5;//100
 	W(5,5) = 5;//100
 	//pos vel
-	W(6,6) = 6;//1
+	W(6,6) = 8;//1
 	W(7,7) = 6;//1
 	W(8,8) = 5;//1
 	//ang vel
@@ -369,23 +369,23 @@ void mpc::mpc_state_function()
 	W(10,10) = 5;//1
 	W(11,11) = 5;//1
 	//thrust_u weight
-	W(12,12) = 3;
-	W(13,13) = 3;
-	W(14,14) = 3;
+	W(12,12) = 5;
+	W(13,13) = 5;
+	W(14,14) = 5;
 	//torque_u weight
-	W(15,15) = 5;
-	W(16,16) = 5;
-	W(17,17) = 5;
+	W(15,15) = 6;
+	W(16,16) = 6;
+	W(17,17) = 6;
 
 	// WN matrix 
-	WN(0,0)= 10;//pos x
-	WN(1,1)= 10;//pos y
-	WN(2,2)= 15;//pos z
-	WN(3,3)= 2;//ang x
-	WN(4,4)= 2;//ang y
+	WN(0,0)= 18;//pos x
+	WN(1,1)= 12;//pos y
+	WN(2,2)= 18;//pos z
+	WN(3,3)= 5;//ang x
+	WN(4,4)= 5;//ang y
 	WN(5,5)= 5;//ang z
 
-	WN(6,6) = 6;  //vel x
+	WN(6,6) = 8;  //vel x
 	WN(7,7) = 6;  //vel y
 	WN(8,8) = 5;   //vel z
 	WN(9,9) =  5;  //ang vel x
