@@ -268,11 +268,11 @@ void mpc::mpc_state_function()
 	mapMang_v[1]=mapMtMangv[1][0]*ang_vel[0]+mapMtMangv[1][1]*ang_vel[1]+mapMtMangv[1][2]*ang_vel[2];
 	mapMang_v[2]=mapMtMangv[2][0]*ang_vel[0]+mapMtMangv[2][1]*ang_vel[1]+mapMtMangv[2][2]*ang_vel[2];
 	
-	//calc the acc vector
+	// calc the acc vector
 	acc[0]=(1/param.S3Q_mass)*(rotation[0][0]*force[0]+rotation[0][1]*force[1]+rotation[0][2]*force[2]);
 	acc[1]=(1/param.S3Q_mass)*(rotation[1][0]*force[0]+rotation[1][1]*force[1]+rotation[1][2]*force[2]);
-	acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2])+G;
-	// acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2]);
+	// acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2])+G;
+	acc[2]=(1/param.S3Q_mass)*(rotation[2][0]*force[0]+rotation[2][1]*force[1]+rotation[2][2]*force[2]);
 
 	//calc the ang acc vector 
 	ang_acc[0]=(J.inverse())(0,0)*(tao[0]+mapMang_v[0])+(J.inverse())(0,1)*(tao[1]+mapMang_v[1])+(J.inverse())(0,2)*(tao[2]+mapMang_v[2]);
@@ -496,6 +496,13 @@ void mpc::init_mpc_fun()
 	u0[3]=torques_u_init(0);
 	u0[4]=torques_u_init(1);
 	u0[5]=torques_u_init(2);
+
+	// u0[0]=0;
+	// u0[1]=0;
+	// u0[2]=0;
+	// u0[3]=0;
+	// u0[4]=0;
+	// u0[5]=0;
 	for (int i = 0; i < NU; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -512,10 +519,10 @@ void mpc::init_mpc_fun()
 	ref[4] = hover_attitude.y;
 	ref[5] = hover_attitude.z;
 
-	ref[6] = 0; //vel_x
-	ref[7] = 0; //vel_y
-	ref[8] = 0; //vel_z
-	ref[9] = 0; //vel_roll
+	ref[6]  = 0; //vel_x
+	ref[7]  = 0; //vel_y
+	ref[8]  = 0; //vel_z
+	ref[9]  = 0; //vel_roll
 	ref[10] = 0;//vel_pitch
 	ref[11] = 0;//vel_yaw
 	
@@ -525,13 +532,6 @@ void mpc::init_mpc_fun()
 	ref[15] = 0;//torque roll ref
 	ref[16] = 0;//torque pitch ref
 	ref[17] = 0;//torque yaw ref
-
-	// ref[18] = 0;                //thrust x ref
-	// ref[19] = 0;                //thrust y ref
-	// ref[20] = -param.S3Q_mass*G;//thrust z ref
-	// ref[21] = 0;                //torque x ref
-	// ref[22] = 0;                //torque y ref
-	// ref[23] = 0;                //torque z ref
 
 	for (int i = 0; i < NY; i++)
 	{
@@ -567,7 +567,7 @@ void mpc::mpc_solver()
 	//perform the feedback step
 	
 	acado_feedbackStep();
-	get_state();
+	// get_state();
 			
 	// acado_printDifferentialVariables();
 	// acado_printControlVariables();
@@ -947,23 +947,27 @@ void mpc::output_publish(geometry_msgs::Point ang1,geometry_msgs::Point ang2,geo
 //get input value and publish and print the input value
 void mpc::get_input()
 {
-	// if ((-45 <= acadoVariables.u[0] <= 45)&&
-	// (-45 <= acadoVariables.u[1] <= 45)&&
-	// (-90 <= acadoVariables.u[2] <= 0)&&
-	// (-10 <= acadoVariables.u[3] <= 10)&&
-	// (-10 <= acadoVariables.u[4] <= 10)&&
-	// (-10 <= acadoVariables.u[5] <= 10))
-	// fisrt_order_filter(in_thrust,in_torque);
-	// in_thrust[0] =std::max(l_thrust_x,std::min(u_thrust_x,(double)acadoVariables.u[0]));
-	// in_thrust[1] =std::max(l_thrust_y,std::min(u_thrust_y,(double)acadoVariables.u[1]));
-	// in_thrust[2] =std::max(l_thrust_z,std::min(u_thrust_z,(double)acadoVariables.u[2]));
-	// in_torque[0] =std::max(l_torque_x,std::min(u_torque_x,(double)acadoVariables.u[3]));
-	// in_torque[1] =std::max(l_torque_y,std::min(u_torque_y,(double)acadoVariables.u[4]));
-	// in_torque[2] =std::max(l_torque_z,std::min(u_torque_z,(double)acadoVariables.u[5]));
 
-	thrust_u[0] =acadoVariables.u[0];
-	thrust_u[1] =acadoVariables.u[1];
-	thrust_u[2] =acadoVariables.u[2];
+	Eigen::Vector3f force3,forcew,force_back;
+	Eigen::Matrix3f r_mat0;
+
+	//get a vector of the force
+	force3(0) = acadoVariables.u[0];
+	force3(1) = acadoVariables.u[1];
+	force3(2) = acadoVariables.u[2];
+	ROS_INFO_STREAM("force3: "<<force3);
+    r_mat0 = euler_to_rotation_mat(main_eular_angles);
+	//get the force in world frame
+	forcew = r_mat0*force3;
+	forcew(2) = forcew(2)-param.S3Q_mass*G;
+	ROS_INFO_STREAM("forcew: "<<forcew);
+	force_back = r_mat0.inverse()*forcew/2;
+	ROS_INFO_STREAM("force_back: "<<force_back);
+
+
+	thrust_u[0] =force_back(0);//acadoVariables.u[0];
+	thrust_u[1] =force_back(1);//acadoVariables.u[1];
+	thrust_u[2] =force_back(2);//acadoVariables.u[2];
 	torques_u[0]=acadoVariables.u[3];
 	torques_u[1]=acadoVariables.u[4];
 	torques_u[2]=acadoVariables.u[5];
@@ -998,11 +1002,11 @@ void mpc::get_state()
 		states_var[i] = acadoVariables.x0[i];
 	}
 	//print states value
-	// ROS_INFO_STREAM("states:"<<states_var[0]<<" "<<states_var[1]<<" "<<states_var[2]
-	// <<" "<<states_var[3]<<" "<<states_var[4]<<" "<<states_var[5]
-	// <<" "<<states_var[6]<<" "<<states_var[7]<<" "<<states_var[8]
-	// <<" "<<states_var[9]<<" "<<states_var[10]<<" "<<states_var[11]
-	// );
+	ROS_INFO_STREAM("states:"<<states_var[0]<<" "<<states_var[1]<<" "<<states_var[2]
+	<<" "<<states_var[3]<<" "<<states_var[4]<<" "<<states_var[5]
+	<<" "<<states_var[6]<<" "<<states_var[7]<<" "<<states_var[8]
+	<<" "<<states_var[9]<<" "<<states_var[10]<<" "<<states_var[11]
+	);
 }
 
 //refresh the state and reference value
@@ -1252,7 +1256,7 @@ Eigen::VectorXf mpc::get_thu_tor_ref(
 			angle_rate(2) = vel_d(5);
 			acc_d = diff_from_velocity(linear_vel,angle_rate,loop_time);
 			u_ref = dynamic_model(acc_d,vel_d);
-			// ROS_INFO_STREAM("u_ref"<<u_ref);
+			ROS_INFO_STREAM("u_ref"<<u_ref);
 			break;
 		case 1:// only velocity input
 			
